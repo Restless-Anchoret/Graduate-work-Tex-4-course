@@ -1,1 +1,661 @@
-Тестирующий модуль (код).
+\section*{\texttt{TestingSystem.java}}
+\begin{verbatim}
+package com.ran.testing.system;
+
+public interface TestingSystem {
+    
+    public void start();
+    public void addSubmission(TestingInfo info);
+    public void stop();
+    
+}
+\end{verbatim}
+
+\section*{\texttt{MultithreadTestingSystem.java}}
+\begin{verbatim}
+package com.ran.testing.system;
+
+// Импорт классов
+
+public class MultithreadTestingSystem implements TestingSystem {
+
+    private static final int DEFAULT_THREADS_QUANTITY = Runtime.getRuntime()
+            .availableProcessors();
+    private static MultithreadTestingSystem defaultSystem = null;
+    
+    public static MultithreadTestingSystem getDefault() {
+        if (defaultSystem == null) {
+            defaultSystem = new MultithreadTestingSystem(DEFAULT_THREADS_QUANTITY);
+        }
+        return defaultSystem;
+    }
+    
+    private int threadsQuantity;
+    private TestingFileSupplier fileSupplier;
+    private ExecutorService service;
+    private ExecutorCompletionService<TestingInfo> completionService;
+    private int submissionsCounter = 0;
+    private Thread resultHandlersThread;
+
+    // Конструкторы, геттеры, сеттеры
+
+    public synchronized int getSubmissionsCounter() {
+        return submissionsCounter;
+    }
+    
+    private synchronized void submissionsCounterUp() {
+        submissionsCounter++;
+    }
+    
+    private synchronized void submissionsCounterDown() {
+        submissionsCounter--;
+    }
+    
+    @Override
+    public void start() {
+        service = Executors.newFixedThreadPool(threadsQuantity);
+        completionService = new ExecutorCompletionService<>(service);
+        resultHandlersThread = new Thread(new ResultTracking());
+        resultHandlersThread.start();
+    }
+
+    @Override
+    public void addSubmission(TestingInfo info) {
+        submissionsCounterUp();
+        completionService.submit(new TestingTask(info, fileSupplier));
+    }
+
+    @Override
+    public void stop() {
+        service.shutdown();
+        resultHandlersThread.interrupt();
+    }
+    
+    private class ResultTracking implements Runnable {
+        public void run() {
+            boolean interrupted = false;
+            while (!interrupted || getSubmissionsCounter() > 0) {
+                try {
+                    Future<TestingInfo> future = completionService.take();
+                    submissionsCounterDown();
+                    TestingInfo info = future.get();
+                    info.getTestResultHandler().process(info);
+                } // Перехват исключений, вывод в лог
+            }
+        }
+    }
+    
+    private static class TestingTask implements Callable<TestingInfo> {
+        private TestingInfo info;
+        private TestingFileSupplier fileSupplier;
+        // Конструктор
+        public TestingInfo call() {
+            info.getProblemTester().performTesting(fileSupplier, info);
+            return info;
+        }
+    }
+    
+}
+\end{verbatim}
+
+\section*{\texttt{Verdict.java}}
+\begin{verbatim}
+package com.ran.testing.system;
+
+public enum Verdict {
+
+    NOT_TESTED,
+    WAITING,
+    TESTING,
+    ACCEPTED,
+    PRETESTS_ACC,
+    PARTIAL_ACC,
+    COMPILE_ERROR,
+    RUNTIME_ERROR,
+    WRONG_ANSWER,
+    TIME_LIMIT,
+    MEMORY_LIMIT,
+    SECUR_VIOL,
+    FAIL
+
+}
+\end{verbatim}
+
+\section*{\texttt{VerdictInfo.java}}
+\begin{verbatim}
+package com.ran.testing.system;
+
+public class VerdictInfo implements Cloneable {
+
+    public static final VerdictInfo VERDICT_NOT_TESTED = new VerdictInfo(Verdict.NOT_TESTED);
+    public static final VerdictInfo VERDICT_COMPILE_ERROR = new VerdictInfo(Verdict.COMPILE_ERROR);
+    public static final VerdictInfo VERDICT_MEMORY_LIMIT = new VerdictInfo(Verdict.MEMORY_LIMIT);
+    public static final VerdictInfo VERDICT_SECUR_VIOL = new VerdictInfo(Verdict.SECUR_VIOL);
+    public static final VerdictInfo VERDICT_FAIL = new VerdictInfo(Verdict.FAIL);
+
+    private Verdict verdict;
+    private Integer decisionTime;
+    private Short decisionMemory;
+    private Short points;
+    private Integer wrongTestNumber;
+
+    // Конструкторы, геттеры, сеттеры
+
+    @Override
+    public VerdictInfo clone() {
+        return new VerdictInfo(this.verdict, this.points)
+                .setDecisionTime(this.decisionTime)
+                .setDecisionMemory(this.decisionMemory)
+                .setWrongTestNumber(this.wrongTestNumber);
+    }
+
+}
+\end{verbatim}
+
+\section*{\texttt{TestingInfo.java}}
+\begin{verbatim}
+package com.ran.testing.system;
+
+// Импорт классов
+
+public class TestingInfo {
+
+    private TestResultHandler testResultHandler;
+    private ProblemTester problemTester;
+    private EvaluationSystem evaluationSystem;
+    private LanguageToolkit languageToolkit;
+    private Checker checker;
+    private CodeFileSupplier codeFileSupplier;
+    private ProblemFileSupplier problemFileSupplier;
+    private boolean pretestsOnly;
+    private Integer timeLimit;
+    private Short memoryLimit;
+    private TestTable testTable;
+    private VerdictInfo verdictInfo = null;
+
+    public TestingInfo(TestResultHandler testResultHandler, ProblemTester problemTester,
+            EvaluationSystem evaluationSystem, LanguageToolkit languageToolkit,Checker checker,
+            CodeFileSupplier codeFileSupplier, ProblemFileSupplier problemFileSupplier,
+            boolean pretestsOnly, Integer timeLimit,
+            Short memoryLimit, TestTable testTable) {
+        this.testResultHandler = testResultHandler;
+        this.problemTester = problemTester;
+        this.evaluationSystem = evaluationSystem;
+        this.languageToolkit = languageToolkit;
+        this.checker = checker;
+        this.codeFileSupplier = codeFileSupplier;
+        this.problemFileSupplier = problemFileSupplier;
+        this.pretestsOnly = pretestsOnly;
+        this.timeLimit = timeLimit;
+        this.memoryLimit = memoryLimit;
+        this.testTable = testTable;
+    }
+
+    // Геттеры, сеттеры
+
+}
+\end{verbatim}
+
+\section*{\texttt{ProblemTester.java}}
+\begin{verbatim}
+package com.ran.testing.tester;
+
+// Импорт классов
+
+public interface ProblemTester {
+
+    void performTesting(TestingFileSupplier fileSupplier, TestingInfo info);
+
+}
+\end{verbatim}
+
+\section*{\texttt{CodingProblemTester.java}}
+\begin{verbatim}
+package com.ran.testing.tester;
+
+// Импорт классов
+
+public class CodingProblemTester implements ProblemTester {
+
+    @Override
+    public void performTesting(TestingFileSupplier fileSupplier, TestingInfo info) {
+        Path sourceFile = info.getCodeFileSupplier().getSourceFile();
+        Path compileFolder = info.getCodeFileSupplier().getCompileFolder();
+        Path configFolder = fileSupplier.getConfigurationFolder();
+        int compilationResult = 0;
+        try {
+            compilationResult = info.getLanguageToolkit().compile(sourceFile,
+                    compileFolder, configFolder);
+        } catch (FailException exception) {
+            TestingLogging.logger.log(Level.FINE,
+                    "FailException while compilation of decision", exception);
+            if (exception.getCause() != null) {
+                TestingLogging.logger.log(Level.FINE,
+                        "FailException while compilation of decision (cause)",
+                        exception.getCause());
+            }
+            info.setVerdictInfo(VerdictInfo.VERDICT_FAIL);
+            return;
+        }
+        if (compilationResult != 0) {
+            info.setVerdictInfo(VerdictInfo.VERDICT_COMPILE_ERROR);
+            return;
+        }
+        info.getChecker().initialize(info.getProblemFileSupplier());
+        EvaluationSystem evaluationSystem = info.getEvaluationSystem();
+        evaluationSystem.orderTesting(new CodingTesterDelegate(info, fileSupplier),
+                info.isPretestsOnly());
+        VerdictInfo verdictInfo = evaluationSystem.getVerdictInfo(info.getTestTable(),
+                info.isPretestsOnly());
+        info.setVerdictInfo(verdictInfo);
+    }
+    
+    private static class CodingTesterDelegate implements EvaluationSystem.TesterDelegate {
+
+        private TestingInfo info;
+        private TestingFileSupplier fileSupplier;
+        private Path configFolder;
+        // Конструктор
+        
+        @Override
+        public TestTable getTestTable() {
+            return info.getTestTable();
+        }
+
+        @Override
+        public Integer performTestGroup(TestGroupType type, boolean upToFirstFailure) {
+            Integer wrongTestNumber = null;
+            int testsQuantity = info.getTestTable().getTestsQuantity(type);
+            for (int testNumber = 1; testNumber <= testsQuantity; testNumber++) {
+                VerdictInfo verdictInfo = performOneTest(type, testNumber);
+                info.getTestTable().putVerdictInfo(type, testNumber, verdictInfo);
+                if (wrongTestNumber == null && verdictInfo.getVerdict() != Verdict.ACCEPTED) {
+                    wrongTestNumber = testNumber;
+                }
+                if (upToFirstFailure && verdictInfo.getVerdict() != Verdict.ACCEPTED) {
+                    break;
+                }
+            }
+            return wrongTestNumber;
+        }
+
+        @Override
+        public VerdictInfo performOneTest(TestGroupType type, int testNumber) {
+            Path outputFile = fileSupplier.getTempFile();
+            try {
+                if (outputFile == null || Files.notExists(outputFile)) {
+                    TestingLogging.logger.fine("Temp file for output was not found");
+                    return VerdictInfo.VERDICT_FAIL;
+                }
+                Path inputFile = info.getProblemFileSupplier()
+                        .getTestInputFile(type, testNumber);
+                Path answerFile = info.getProblemFileSupplier()
+                        .getTestAnswerFile(type, testNumber);
+                Path decisionFile = info.getCodeFileSupplier().getCompileFile();
+                if (Files.notExists(inputFile) || Files.notExists(answerFile) ||
+                        Files.notExists(decisionFile)) {
+                    TestingLogging.logger.fine(
+                            "Input file or answer file or decision file were not found");
+                    return VerdictInfo.VERDICT_FAIL;
+                }
+                try {
+                    LanguageToolkit.ExecutionInfo executionInfo = info.getLanguageToolkit()
+                            .execute(decisionFile, inputFile, outputFile, configFolder,
+                                    info.getTimeLimit(), info.getMemoryLimit());
+                    if (executionInfo.getExitCode() != 0) {
+                        return new VerdictInfo(Verdict.RUNTIME_ERROR)
+                                .setDecisionTime(executionInfo.getDecisionTime())
+                                .setDecisionMemory(executionInfo.getDecisionMemory());
+                    }
+                    Verdict verdict = info.getChecker().check(inputFile, outputFile, answerFile);
+                    return new VerdictInfo(verdict)
+                            .setDecisionTime(executionInfo.getDecisionTime())
+                            .setDecisionMemory(executionInfo.getDecisionMemory());
+                } catch (TimeLimitException exception) {
+                    return new VerdictInfo(Verdict.TIME_LIMIT).setDecisionTime(
+                            exception.getDecisionTime());
+                } catch (MemoryLimitException exception) {
+                    return VerdictInfo.VERDICT_MEMORY_LIMIT;
+                } catch (SecurityViolatedException exception) {
+                    return VerdictInfo.VERDICT_SECUR_VIOL;
+                } catch (FailException exception) {
+                    TestingLogging.logger.log(Level.FINE,
+                            "FailException while execution of decision", exception);
+                    if (exception.getCause() != null) {
+                        TestingLogging.logger.log(Level.FINE,
+                                "FailException while execution of decision (cause)",
+                                exception.getCause());
+                    }
+                    return VerdictInfo.VERDICT_FAIL;
+                }
+            } finally {
+                fileSupplier.deleteTempFile(outputFile);
+            }
+        }
+        
+    }
+
+}
+\end{verbatim}
+
+\section*{\texttt{EvaluationSystem.java}}
+\begin{verbatim}
+package com.ran.testing.evaluation;
+
+// Импорт классов
+
+public interface EvaluationSystem {
+
+    void orderTesting(TesterDelegate delegate, boolean pretestsOnly);
+    VerdictInfo getVerdictInfo(TestTable testTable, boolean pretestsOnly);
+    ProblemResult countProblemResult(TreeMap<Date, VerdictInfo> verdictsMap,
+            Date competitionBeginning);
+
+    public interface TesterDelegate {
+        TestTable getTestTable();
+        Integer performTestGroup(TestGroupType type, boolean upToFirstFailure);
+        VerdictInfo performOneTest(TestGroupType type, int testNumber);
+    }
+    
+    public class ProblemResult {
+        private short points;
+        private int fine;
+        // Конструктор, геттеры, сеттеры
+    }
+
+}
+\end{verbatim}
+
+\section*{\texttt{ICPCEvaluationSystem.java}}
+\begin{verbatim}
+package com.ran.testing.evaluation;
+
+// Импорт классов
+
+public class ICPCEvaluationSystem implements EvaluationSystem {
+
+    private static final int FINE_FOR_FAILURE = 20;
+    
+    @Override
+    public void orderTesting(TesterDelegate delegate, boolean pretestsOnly) {
+        int lastGroupIndex = (pretestsOnly ? TestGroupType.PRETESTS.ordinal() :
+                TestGroupType.values().length - 1);
+        TestGroupType[] types = Arrays.copyOfRange(TestGroupType.values(), 0, lastGroupIndex);
+        for (TestGroupType type: types) {
+            Integer wrongTestNumber = delegate.performTestGroup(type, true);
+            if (wrongTestNumber != null) {
+                break;
+            }
+        }
+    }
+    
+    @Override
+    public VerdictInfo getVerdictInfo(TestTable testTable, boolean pretestsOnly) {
+        Integer decisionTime = null;
+        Short decisionMemory = null;
+        int testsAccepted = 0;
+        
+        int lastGroupIndex = (pretestsOnly ? TestGroupType.PRETESTS.ordinal() :
+                TestGroupType.values().length - 1);
+        TestGroupType[] types = Arrays.copyOfRange(TestGroupType.values(), 0, lastGroupIndex);
+        
+        for (TestGroupType type: types) {
+            int testsInGroup = testTable.getTestsQuantity(type);
+            for (int testNumber = 1; testNumber <= testsInGroup; testNumber++) {
+                VerdictInfo verdictInfo = testTable.getVerdictInfoForTest(type, testNumber);
+                if (verdictInfo.getVerdict() != Verdict.ACCEPTED) {
+                    return verdictInfo.clone().setWrongTestNumber(testsAccepted + testNumber);
+                }
+                if (verdictInfo.getDecisionTime() != null) {
+                    decisionTime = (decisionTime == null ? verdictInfo.getDecisionTime() :
+                            Math.max(decisionTime, verdictInfo.getDecisionTime()));
+                }
+                if (verdictInfo.getDecisionMemory() != null) {
+                    decisionMemory = (decisionMemory == null ? verdictInfo.getDecisionMemory() :
+                            (short)Math.max(decisionMemory, verdictInfo.getDecisionMemory()));
+                }
+            }
+            testsAccepted += testsInGroup;
+        }
+        Verdict verdict = (pretestsOnly ? Verdict.PRETESTS_ACC : Verdict.ACCEPTED);
+        return new VerdictInfo(verdict)
+                .setDecisionTime(decisionTime)
+                .setDecisionMemory(decisionMemory);
+    }
+
+    @Override
+    public ProblemResult countProblemResult(TreeMap<Date, VerdictInfo> verdictsMap,
+            Date competitionBeginning) {
+        int failureCounter = 0;
+        for (Map.Entry<Date, VerdictInfo> entry: verdictsMap.entrySet()) {
+            Verdict verdict = entry.getValue().getVerdict();
+            if (verdict != Verdict.ACCEPTED && verdict != Verdict.PRETESTS_ACC) {
+                failureCounter++;
+            } else {
+                int minutesAfterBeginning = (int)((entry.getKey().getTime()
+                        - competitionBeginning.getTime()) / 60_000);
+                return new ProblemResult((short)1, failureCounter * FINE_FOR_FAILURE +
+                        minutesAfterBeginning);
+            }
+        }
+        return new ProblemResult((short)0, 0);
+    }
+
+}
+\end{verbatim}
+
+\section*{\texttt{LanguageToolkit.java}}
+\begin{verbatim}
+package com.ran.testing.language;
+
+// Импорт классов
+
+public interface LanguageToolkit {
+    
+    int compile(Path sourceFile, Path compileFolder, Path configFolder) throws FailException;
+    int compile(Path sourceFile, Path compileFolder, Path configFolder,
+            OutputStream errorStream) throws FailException;
+    ExecutionInfo execute(Path compileFile, Path inputFile, Path outputFile,
+            Path configFolder, int timeLimit, short memoryLimit)
+            throws FailException, TimeLimitException, MemoryLimitException,
+            SecurityViolatedException;
+
+    public class ExecutionInfo {
+        private int exitCode;
+        private Integer decisionTime;
+        private Short decisionMemory;
+        // Конструктор, геттеры
+    }
+    
+    static final OutputStream EMPTY_OUTPUT_STREAM = new OutputStream() {
+        @Override
+        public void write(int b) throws IOException {
+        }
+    };
+    
+}
+\end{verbatim}
+
+\section*{\texttt{JavaLanguageToolkit.java}}
+\begin{verbatim}
+package com.ran.testing.language;
+
+// Импорт классов
+
+public class JavaLanguageToolkit implements LanguageToolkit {
+    
+    private static final String POLICY_FILE_NAME = "java_problem.policy";
+    private static final String PROPERTIES_FILE_NAME = "java.properties";
+    private static final String JAVA_PATH_PROPERTY = "java_path";
+    private static final String STACK_SIZE_PROPERTY = "stack_size";
+    
+    // Другие статические константы
+    
+    private static Properties javaProperties = null;
+    private static Path javaPropertiesLocation = null;
+    
+    private static Properties getJavaProperties(Path configFolder) throws FailException {
+        if (javaProperties == null || !Objects.equals(configFolder, javaPropertiesLocation)) {
+            javaProperties = new Properties();
+            try {
+                javaProperties.load(Files.newInputStream(
+                        configFolder.resolve(PROPERTIES_FILE_NAME)));
+            } catch (IOException exception) {
+                throw new FailException("Fail because of exception while loading "
+                        + PROPERTIES_FILE_NAME, exception);
+            }
+            javaPropertiesLocation = configFolder;
+        }
+        return javaProperties;
+    }
+    
+    @Override
+    public int compile(Path sourceFile, Path compileFolder, Path configFolder)
+            throws FailException {
+        return compile(sourceFile, compileFolder, configFolder, EMPTY_OUTPUT_STREAM);
+    }
+
+    @Override
+    public int compile(Path sourceFile, Path compileFolder, Path configFolder,
+            OutputStream errorStream) throws FailException {
+        if (Files.notExists(sourceFile) || Files.notExists(compileFolder)) {
+            throw new FailException("Compilation failed because files were not found.");
+        }
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        return compiler.run(null, null, errorStream, "-d", compileFolder.toString(),
+                sourceFile.toString());
+    }
+
+    @Override
+    public ExecutionInfo execute(Path compileFile, Path inputFile, Path outputFile,
+            Path configFolder, int timeLimit, short memoryLimit)
+            throws FailException, TimeLimitException, MemoryLimitException,
+            SecurityViolatedException {
+        Properties javaProperties = getJavaProperties(configFolder);
+        String javaPathProperty = javaProperties.getProperty(JAVA_PATH_PROPERTY);
+        String stackSizeProperty = javaProperties.getProperty(STACK_SIZE_PROPERTY);
+        Path policyPath = configFolder.resolve(POLICY_FILE_NAME);
+        if (Files.notExists(compileFile) || Files.notExists(inputFile) ||
+                Files.notExists(outputFile) || Files.notExists(policyPath) ||
+                javaPathProperty == null || stackSizeProperty == null) {
+            throw new FailException("Execution failed because files or properties were not found.");
+        }
+        try {
+            Path javaPath = Paths.get(javaPathProperty);
+            String memoryOption = "-Xmx" + memoryLimit + "M";
+            String stackOption = "-Xss" + stackSizeProperty + "M";
+            String managerOption = "-Djava.security.manager";
+            String policyOption = "-Djava.security.policy==" + policyPath.toString();
+            String className = getClassName(compileFile);
+            ProcessBuilder processBuilder = new ProcessBuilder("\"" + javaPath.toString() + "\"",
+                    memoryOption, stackOption, managerOption, policyOption, className);
+            Path compileFolder = compileFile.getParent();
+            processBuilder.directory(compileFolder.toFile());
+            processBuilder.redirectInput(inputFile.toFile());
+            processBuilder.redirectOutput(outputFile.toFile());
+            Process process = null;
+            try {
+                long start = System.currentTimeMillis();
+                process = processBuilder.start();
+                process.waitFor(timeLimit, TimeUnit.MILLISECONDS);
+                int decisionTime = (int)(System.currentTimeMillis() - start);
+                if (process.isAlive()) {
+                    throw new TimeLimitException(decisionTime);
+                }
+                int exitValue = process.exitValue();
+                if (exitValue != 0) {
+                    analyseErrorStream(process.getErrorStream());
+                }
+                return new ExecutionInfo(exitValue, decisionTime, null);
+            } finally {
+                if (process != null) {
+                    process.destroyForcibly();
+                    process.waitFor();
+                }
+            }
+        } catch (InterruptedException | IOException exception) {
+            throw new FailException(
+                    "InterruptedException or IOException while execution.", exception);
+        }
+    }
+    
+    // Вспомогательные методы
+
+}
+\end{verbatim}
+
+\section*{\texttt{Checker.java}}
+\begin{verbatim}
+package com.ran.testing.checker;
+
+// Импорт классов
+
+public interface Checker {
+
+    default void initialize(ProblemFileSupplier problemFileSupplier) { }
+    Verdict check(Path inputPath, Path outputPath, Path answerPath);
+
+}
+\end{verbatim}
+
+\section*{\texttt{MatchChecker.java}}
+\begin{verbatim}
+package com.ran.testing.checker;
+
+// Импорт классов
+
+public class MatchChecker implements Checker {
+    
+    @Override
+    public Verdict check(Path inputPath, Path outputPath, Path answerPath) {
+        if (Files.notExists(inputPath) || Files.notExists(outputPath)) {
+            TestingLogging.logger.fine("Input or output files not found");
+            return Verdict.FAIL;
+        }
+        try (Tokenizer outputTokenizer = new Tokenizer(outputPath);
+                Tokenizer answerTokenizer = new Tokenizer(answerPath)) {
+            do {
+                String outputToken = outputTokenizer.nextToken();
+                String answerToken = answerTokenizer.nextToken();
+                if (outputToken == null && answerToken == null) {
+                    return Verdict.ACCEPTED;
+                } else if (!Objects.equals(outputToken, answerToken)) {
+                    return Verdict.WRONG_ANSWER;
+                }
+            } while (true);
+        } // Перехват исключений, вывод в лог
+    }
+    
+    private static class Tokenizer implements Closeable {
+
+        private BufferedReader reader;
+        private StringTokenizer tokenizer = null;
+        
+        public Tokenizer(Path path) throws IOException {
+            reader = new BufferedReader(new InputStreamReader(Files.newInputStream(
+                    path, StandardOpenOption.READ)));
+        }
+        
+        public String nextToken() throws IOException {
+            if (tokenizer == null || !tokenizer.hasMoreTokens()) {
+                String nextLine = null;
+                do {
+                    nextLine = reader.readLine();
+                } while (Objects.equals(nextLine, ""));
+                if (nextLine == null) {
+                    return null;
+                }
+                tokenizer = new StringTokenizer(nextLine);
+            }
+            return tokenizer.nextToken();
+        }
+        
+        @Override
+        public void close() throws IOException {
+            reader.close();
+        }
+        
+    }
+    
+}
+\end{verbatim}

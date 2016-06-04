@@ -1,1 +1,516 @@
-Библиотека для разработки задач (код).
+\section*{\texttt{Generator.java}}
+\begin{verbatim}
+package com.ran.development.gen;
+
+// Импорт классов
+
+public abstract class Generator {
+
+    private static final long DEFAULT_RANDOM_SEED = 1938572538L;
+    
+    public static Generator getDefault() {
+        return new Generator() {
+            @Override
+            protected void generate(String[] args) { }
+        };
+    }
+    
+    private Random random;
+    private PrintStream output;
+    private RegularExpressionParser parser = new RegularExpressionParser();
+    
+    // Контструкторы, геттеры, сеттеры
+    
+    // print-методы
+    
+    protected int nextInt(int higherBound) {
+        return random.nextInt(higherBound);
+    }
+    
+    protected int nextInt(int lowerBound, int higherBound) {
+        return lowerBound + random.nextInt(higherBound - lowerBound + 1);
+    }
+    
+    // Ещё next-методы
+    
+    protected int any(int[] values) {
+        return values[random.nextInt(values.length)];
+    }
+    
+    protected long any(long[] values) {
+        return values[random.nextInt(values.length)];
+    }
+    
+    // Ещё any-методы
+    
+    protected char any(String regularExpression) {
+        int quantity = parser.getCharactersQuantity(regularExpression);
+        return parser.getCharacter(regularExpression, random.nextInt(quantity));
+    }
+    
+    protected String anyLine(String regularExpression, int length) {
+        return anyLines(regularExpression, length, 1)[0];
+    }
+    
+    protected String[] anyLines(String regularExpression, int lengthOfLine, int linesQuantity) {
+        int quantity = parser.getCharactersQuantity(regularExpression);
+        String[] stringsArray = new String[linesQuantity];
+        char[] array = new char[lengthOfLine];
+        for (int i = 0; i < linesQuantity; i++) {
+            for (int j = 0; j < lengthOfLine; j++) {
+                array[j] = parser.getCharacter(regularExpression, random.nextInt(quantity));
+            }
+            stringsArray[i] = new String(array);
+        }
+        return stringsArray;
+    }
+    
+    abstract protected void generate(String[] args);
+    
+}
+\end{verbatim}
+
+\section*{\texttt{MultiGenerator.java}}
+\begin{verbatim}
+package com.ran.development.gen;
+
+// Импорт классов
+
+public class MultiGenerator {
+    
+    private static final long MESSAGING_DELAY = 2000;
+    
+    private DevelopmentListenerSupport listenerSupport = new DevelopmentListenerSupport();
+    private Supplier<? extends Generator> generatorSupplier = () -> {
+        return Generator.getDefault();
+    };
+    private int randomSeed = 0;
+    private Path[] paths = { };
+    private String[] arguments = { };
+    
+    // Геттеры, сеттеры, методы работы со слушателями
+    
+    public void performGenerating() {
+        listenerSupport.fireProcessingStarted();
+        Generator generator = generatorSupplier.get();
+        if (generator == null) {
+            finishEarlier("Cannot instantiate Generator subclass",
+                    DevelopmentResult.FAIL, 1, paths.length);
+            return;
+        }
+        generator.setRandomSeed(randomSeed);
+        for (int index = 1; index <= paths.length; index++) {
+            listenerSupport.fireTaskProcessingStarted(index);
+            Path path = paths[index - 1];
+            long start = System.currentTimeMillis();
+            Thread thread = null;
+            try (OutputStream output = Files.newOutputStream(path)) {
+                generator.setOutput(output);
+                FutureTask<DevelopmentResult> futureTask = new FutureTask<>(
+                        new GeneratingTask(generator, index, arguments));
+                thread = new Thread(futureTask);
+                start = System.currentTimeMillis();
+                thread.start();
+                while (thread.isAlive()) {
+                    thread.join(MESSAGING_DELAY);
+                    if (thread.isAlive()) {
+                        listenerSupport.fireTaskIsProcessing(index,
+                                System.currentTimeMillis() - start);
+                    }
+                }
+                listenerSupport.fireTaskIsDone(futureTask.get());
+            } // Перехват исключений, вывод в лог
+        }
+        listenerSupport.fireProcessingFinished();
+    }
+    
+    // Вспомогательные методы
+    
+    private static class GeneratingTask implements Callable<DevelopmentResult> {
+        private String[] arguments;
+        private Generator generator;
+        private int generatorNumber;
+        
+        // Конструктор
+        
+        @Override
+        public DevelopmentResult call() {
+            long start = System.currentTimeMillis();
+            try {
+                generator.generate(arguments);
+            } // Перехват исключений, вывод в лог
+            return new DevelopmentResult(generatorNumber, System.currentTimeMillis() - start);
+        }
+    }
+    
+}
+\end{verbatim}
+
+\section*{\texttt{Validator.java}}
+\begin{verbatim}
+package com.ran.development.valid;
+
+// Импорт классов
+
+public abstract class Validator {
+
+    public static Validator getDefault() {
+        return new Validator() {
+            @Override
+            public void validate(String[] args) throws ValidationException { }
+        };
+    }
+    
+    private StrictInput input = StrictInput.getEmptyInput();
+    private RegularExpressionParser parser = new RegularExpressionParser();
+
+    // Конструкторы, геттеры, сеттеры
+    
+    protected void error() throws ValidationException {
+        throw new ValidationException(input.getState());
+    }
+    
+    protected void error(String message) throws ValidationException {
+        throw new ValidationException(message, input.getState());
+    }
+    
+    protected void ensure(boolean condition) throws ValidationException {
+        if (!condition) {
+            error("Condition is not true");
+        }
+    }
+    
+    protected void inBounds(int lowEdge, int number, int highEdge)
+            throws ValidationException {
+        if (!(lowEdge <= number && number <= highEdge)) {
+            error("Number out of bounds");
+        }
+    }
+    
+    // Ещё inBounds-методы
+    
+    protected void matchesExpression(char symbol, String regularExpression)
+            throws ValidationException {
+        if (!parser.matchesExpression(symbol, regularExpression)) {
+            error("Symbol does not match the regular expression");
+        }
+    }
+    
+    protected void matchesExpression(String line, String regularExpression)
+            throws ValidationException {
+        if (!parser.matchesExpression(line, regularExpression)) {
+            error("Line does not match the regular expression");
+        }
+    }
+    
+    protected void matchesExpression(String[] lines, String regularExpression)
+            throws ValidationException {
+        for (String line: lines) {
+            if (!parser.matchesExpression(line, regularExpression)) {
+                error("Line does not match the regular expression");
+            }
+        }
+    }
+    
+    protected void inValues(int number, int[] values) throws ValidationException {
+        for (int value: values) {
+            if (value == number) {
+                return;
+            }
+        }
+        error("Number is not in values array");
+    }
+    
+    // Ещё inValues-методы
+    
+    public void performValidation(String[] args) throws ValidationException {
+        validate(args);
+        if (!input.isReaden()) {
+            error("File was not readen completely");
+        }
+    }
+    
+    public abstract void validate(String[] args) throws ValidationException;
+    
+}
+\end{verbatim}
+
+\section*{\texttt{MultiValidator.java}}
+\begin{verbatim}
+package com.ran.development.valid;
+
+// Импорт классов
+
+public class MultiValidator {
+
+    private static final long MESSAGING_DELAY = 2000;
+    
+    private DevelopmentListenerSupport listenerSupport = new DevelopmentListenerSupport();
+    private Supplier<? extends Validator> validatorSupplier = () -> {
+        return Validator.getDefault();
+    };
+    private Path[] paths = { };
+    private String[] arguments = { };
+    
+    // Геттеры, сеттеры, методы работы со слушателями
+    
+    public void performValidating() {
+        listenerSupport.fireProcessingStarted();
+        Validator validator = validatorSupplier.get();
+        if (validator == null) {
+            finishEarlier("Cannot instantiate Validator subclass",
+                    DevelopmentResult.FAIL, 1, paths.length);
+            return;
+        }
+        for (int index = 1; index <= paths.length; index++) {
+            listenerSupport.fireTaskProcessingStarted(index);
+            Path path = paths[index - 1];
+            long start = System.currentTimeMillis();
+            Thread thread = null;
+            try (InputStream inputStream = Files.newInputStream(path)) {
+                validator.setInputStream(inputStream);
+                FutureTask<DevelopmentResult> futureTask = new FutureTask<>(
+                        new ValidatingTask(validator, index, arguments));
+                thread = new Thread(futureTask);
+                start = System.currentTimeMillis();
+                thread.start();
+                while (thread.isAlive()) {
+                    thread.join(MESSAGING_DELAY);
+                    if (thread.isAlive()) {
+                        listenerSupport.fireTaskIsProcessing(index,
+                                System.currentTimeMillis() - start);
+                    }
+                }
+                listenerSupport.fireTaskIsDone(futureTask.get());
+            } // Перехват исключений, вывод в лог
+        }
+        listenerSupport.fireProcessingFinished();
+    }
+    
+    // Вспомогательные методы
+    
+    private static class ValidatingTask implements Callable<DevelopmentResult> {
+        private String[] arguments;
+        private Validator validator;
+        private int validatorNumber;
+        
+        // Конструктор
+        
+        @Override
+        public DevelopmentResult call() {
+            long start = System.currentTimeMillis();
+            try {
+                validator.performValidation(arguments);
+            } catch (ValidationException exception) {
+                StrictInput.State state = exception.getStrictInputState();
+                String message = exception.getMessage();
+                if (!state.isReaden()) {
+                    message += " (line = " + state.getLineNumber() + ", column = " +
+                            state.getPosition() + ")";
+                }
+                return new DevelopmentResult(validatorNumber, message, DevelopmentResult.FAIL,
+                        System.currentTimeMillis() - start);
+            } // Перехват исключений, вывод в лог
+            return new DevelopmentResult(validatorNumber, System.currentTimeMillis() - start);
+        }
+    }
+    
+}
+\end{verbatim}
+
+\section*{\texttt{Checker.java}}
+\begin{verbatim}
+package com.ran.development.check;
+
+// Импорт классов
+
+public abstract class Checker {
+
+    public static final int OK = 0,
+            WRONG_ANSWER = 1,
+            FAIL = 2;
+
+    private TokenInput input = TokenInput.getEmptyInput();
+    private TokenInput output = TokenInput.getEmptyInput();
+    private TokenInput answer = TokenInput.getEmptyInput();
+    private RegularExpressionParser parser = new RegularExpressionParser();
+
+    // Геттеры, сеттеры
+
+    protected void quit(int resultInfo, String message) throws CheckResultException {
+        throw new CheckResultException(resultInfo, message);
+    }
+
+    // Ещё quit-методы
+
+    protected void quitIf(boolean condition, int resultInfo, String message)
+            throws CheckResultException {
+        if (condition) {
+            quit(resultInfo, message);
+        }
+    }
+
+    // Ещё quitIf-методы
+
+    protected void ensureIf(boolean condition, String message) throws CheckResultException {
+        if (!condition) {
+            quit(WRONG_ANSWER, message);
+        }
+    }
+
+    // Ещё ensureIf-методы
+
+    public void performChecking() throws CheckResultException {
+        try {
+            check();
+        } catch (CheckResultException exception) {
+            if (exception.getResultInfo() == OK && !output.checkEof()) {
+                quit(WRONG_ANSWER, "Extra values in the output");
+            }
+            throw exception;
+        }
+        quit(FAIL, "Checker did not tell result of checking");
+    }
+
+    public abstract void check() throws CheckResultException;
+
+}
+\end{verbatim}
+
+\section*{\texttt{WrapperChecker.java}}
+\begin{verbatim}
+package com.ran.development.check;
+
+// Импорт классов
+
+public class WrapperChecker {
+
+    private static final long DEFAULT_DELAY_TIME = 10_000;
+    private static final long MESSAGING_DELAY = 2000;
+
+    private Supplier<? extends Checker> checkerSupplier;
+    private Checker checker = null;
+    private DevelopmentListenerSupport listenerSupport = new DevelopmentListenerSupport();
+    private long delayTime;
+
+    // Конструкторы, методы работы со слушателями
+
+    public int check(Path inputPath, Path outputPath, Path answerPath) {
+        listenerSupport.fireTaskProcessingStarted(0);
+        if (checker == null) {
+            checker = checkerSupplier.get();
+        }
+        if (checker == null) {
+            String message = "Cannot load Checker subclass";
+            DevelopmentLogging.logger.fine(message);
+            listenerSupport.fireTaskIsDone(new DevelopmentResult(0, message, Checker.FAIL));
+            return Checker.FAIL;
+        }
+        long start = System.currentTimeMillis();
+        Thread thread = null;
+        try (InputStream input = Files.newInputStream(inputPath);
+                InputStream output = Files.newInputStream(outputPath);
+                InputStream answer = Files.newInputStream(answerPath)) {
+            checker.setInput(input);
+            checker.setOutput(output);
+            checker.setAnswer(answer);
+            FutureTask<CheckingResult> futureTask = new FutureTask<>(new CheckingTask(checker));
+            thread = new Thread(futureTask);
+            start = System.currentTimeMillis();
+            thread.start();
+            while (thread.isAlive()) {
+                thread.join(MESSAGING_DELAY);
+                if (thread.isAlive()) {
+                    long time = System.currentTimeMillis() - start;
+                    if (delayTime > 0 && time > delayTime) {
+                        thread.stop();
+                        String message = "Checker is working longer than expected";
+                        DevelopmentLogging.logger.fine(message);
+                        listenerSupport.fireTaskIsDone(new DevelopmentResult(0, message,
+                                DevelopmentResult.FAIL, time));
+                        return Checker.FAIL;
+                    }
+                    listenerSupport.fireTaskIsProcessing(0, time);
+                }
+            }
+            CheckingResult checkingResult = futureTask.get();
+            if (checkingResult.getCheckingInfo() == Checker.FAIL) {
+                DevelopmentLogging.logger.fine(checkingResult.getDevelopmentResult()
+                        .getMessage());
+            }
+            listenerSupport.fireTaskIsDone(checkingResult.getDevelopmentResult());
+            return checkingResult.getCheckingInfo();
+        } // Перехват исключений, вывод в лог
+        return Checker.FAIL;
+    }
+
+    private static class CheckingResult {
+        private DevelopmentResult developmentResult;
+        private int checkingInfo;
+        // Конструкторы, геттеры
+    }
+
+    private static class CheckingTask implements Callable<CheckingResult> {
+        private Checker checker;
+        // Конструктор
+
+        @Override
+        public CheckingResult call() {
+            long start = System.currentTimeMillis();
+            try {
+                checker.performChecking();
+            } catch (CheckResultException exception) {
+                int resultInfo = exception.getResultInfo();
+                int developmentResultInfo = (resultInfo == Checker.FAIL
+                        ? DevelopmentResult.FAIL : DevelopmentResult.OK);
+                DevelopmentResult developmentResult = new DevelopmentResult(
+                        0, exception.getMessage(), developmentResultInfo,
+                        System.currentTimeMillis() - start);
+                return new CheckingResult(developmentResult, resultInfo);
+            } // Перехват исключений, вывод в лог
+            String message = "Checker did not throw any expected exception while its work";
+            DevelopmentLogging.logger.fine(message);
+            DevelopmentResult developmentResult = new DevelopmentResult(0, message,
+                    DevelopmentResult.FAIL, System.currentTimeMillis() - start);
+            return new CheckingResult(developmentResult, Checker.FAIL);
+        }
+    }
+
+}
+\end{verbatim}
+
+\section*{\texttt{Utils.java}}
+\begin{verbatim}
+package com.ran.development.util;
+
+// Импорт классов
+
+public class Utils {
+
+    private Utils() { }
+    
+    public static <T> Supplier<? extends T> getSupplier(Class<T> parentClass,
+            Path classFilePath) {
+        try {
+            Path folderPath = classFilePath.getParent();
+            String className = getClassName(classFilePath);
+            ClassLoader loader = new URLClassLoader(new URL[] { folderPath.toUri().toURL() });
+            Class<? extends T> cl = (Class<? extends T>)loader.loadClass(className);
+            cl.newInstance();
+            return () -> {
+                try {
+                    return cl.newInstance();
+                } catch (InstantiationException | IllegalAccessException exception) {
+                    String message = "Cannot create instance of " + parentClass.getName() +
+                            " subclass";
+                    DevelopmentLogging.logger.log(Level.FINE, message, exception);
+                    return null;
+                }
+            };
+        } // Перехват исключений, вывод в лог
+    }
+    
+    // Вспомогательные методы
+    
+}
+\end{verbatim}

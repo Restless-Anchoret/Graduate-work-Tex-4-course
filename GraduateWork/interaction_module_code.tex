@@ -1,1 +1,475 @@
-Модуль с графическим интерфейсом (код).
+\section*{\texttt{Main.java}}
+\begin{verbatim}
+package com.ran.interaction.main;
+
+// Импорт классов
+
+public class Main {
+
+    private static void plugInClasses() {
+        JavaClassChecker.plugInClass();
+    }
+
+    public static void main(String[] args) {
+        plugInClasses();
+        MainController controller = new MainController();
+        controller.init();
+        controller.showFrame();
+    }
+
+}
+\end{verbatim}
+
+\section*{\texttt{Observer.java}}
+\begin{verbatim}
+package com.ran.interaction.observer;
+
+@FunctionalInterface
+public interface Observer {
+
+    void notify(String id, Object parameter);
+    
+}
+\end{verbatim}
+
+\section*{\texttt{Publisher.java}}
+\begin{verbatim}
+package com.ran.interaction.observer;
+
+import java.util.List;
+
+public interface Publisher {
+
+    List<String> getAvailableIds();
+    void subscribe(String id, Observer observer);
+    Observer getObserver(String id);
+    
+    default void initObservers() {
+        for (String id: getAvailableIds()) {
+            subscribe(id, EmptyObserver.getInstanse());
+        }
+    }
+    
+    default void notifyObservers(Object parameter) {
+        for (String id: getAvailableIds()) {
+            getObserver(id).notify(id, parameter);
+        }
+    }
+    
+}
+\end{verbatim}
+
+\section*{\texttt{MainFrame.java}}
+\begin{verbatim}
+package com.ran.interaction.windows;
+
+// Импорт классов
+
+public class MainFrame extends JFrame {
+
+    private static final String SUBMISSIONS = "Submissions";
+    private static final String PROBLEMS = "Problems";
+    
+    public MainFrame() {
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        initComponents();
+        initCustomComponents();
+    }
+
+    // Код создания интерфейса окна, поля с компонентами                  
+
+    private SubmissionsPanel submissionsPanel;
+    private ProblemsPanel problemsPanel;
+
+    private void initCustomComponents() {
+        submissionsPanel = new SubmissionsPanel();
+        tabbedPane.add(submissionsPanel);
+        tabbedPane.setTitleAt(0, SUBMISSIONS);
+        problemsPanel = new ProblemsPanel();
+        tabbedPane.add(problemsPanel);
+        tabbedPane.setTitleAt(1, PROBLEMS);
+    }
+    
+    public SubmissionsPanel getSubmissionsPanel() {
+        return submissionsPanel;
+    }
+
+    public ProblemsPanel getProblemsPanel() {
+        return problemsPanel;
+    }
+    
+}
+\end{verbatim}
+
+\section*{\texttt{SubmissionsPanel.java}}
+\begin{verbatim}
+package com.ran.interaction.panels;
+
+// Импорт классов
+
+public class SubmissionsPanel extends JPanel implements Publisher {
+
+    public static final String ADD = "add_submission";
+    public static final String RESUBMIT = "resubmit_submission";
+    public static final String DELETE = "delete_submission";
+    public static final String UPDATE = "update_submissions";
+    public static final String VIEW_CODE = "view_submission_code";
+    
+    // Дополнительные статические константы
+    
+    public SubmissionsPanel() {
+        initComponents();
+        initCustomComponents();
+        setTableContent(new Object[][] { });
+        initObservers();
+    }
+
+    // Код создания интерфейса окна, поля с компонентами                     
+
+    private Map<String, Observer> observers = new HashMap<>();
+    
+    private void initCustomComponents() {
+        buttonAdd.addActionListener(event -> getObserver(ADD).notify(ADD, null));
+        buttonResubmit.addActionListener(event -> callObserverIfRowIsSelected(RESUBMIT));
+        buttonDelete.addActionListener(event -> callObserverIfRowIsSelected(DELETE));
+        buttonViewCode.addActionListener(event -> callObserverIfRowIsSelected(VIEW_CODE));
+        buttonUpdate.addActionListener(event -> getObserver(UPDATE).notify(UPDATE, null));
+    }
+    
+    private void callObserverIfRowIsSelected(String id) {
+        if (tableSubmissions.getSelectedIdentifier() != null) {
+            getObserver(id).notify(id, tableSubmissions.getSelectedIdentifier());
+        }
+    }
+    
+    @Override
+    public List<String> getAvailableIds() {
+        return Arrays.asList(ADD, RESUBMIT, DELETE, VIEW_CODE, UPDATE);
+    }
+    
+    @Override
+    public void subscribe(String id, Observer observer) {
+        observers.put(id, observer);
+    }
+
+    @Override
+    public Observer getObserver(String id) {
+        return observers.getOrDefault(id, EmptyObserver.getInstanse());
+    }
+    
+    public final void setTableContent(Object[][] content) {
+        tableSubmissions.setTableContent(content, TABLE_HEADERS);
+    }
+    
+}
+\end{verbatim}
+
+\section*{\texttt{ProblemsPanel.java}}
+\begin{verbatim}
+package com.ran.interaction.panels;
+
+// Импорт классов
+
+public class ProblemsPanel extends JPanel implements Publisher {
+    
+    public static final String ADD = "add_problem";
+    public static final String EDIT = "edit_problem";
+    public static final String DELETE = "delete_problem";
+    public static final String UPDATE = "update_problems";
+    
+    // Дополнительные статические константы
+    
+    public ProblemsPanel() {
+        initComponents();
+        initCustomComponents();
+        setTableContent(new Object[][] { });
+        initObservers();
+    }
+
+    // Код создания интерфейса окна, поля с компонентами
+
+    private Map<String, Observer> observers = new HashMap<>();
+    
+    private void initCustomComponents() {
+        buttonAdd.addActionListener(event -> getObserver(ADD).notify(ADD, null));
+        buttonEdit.addActionListener(event -> callObserverIfRowIsSelected(EDIT));
+        buttonDelete.addActionListener(event -> callObserverIfRowIsSelected(DELETE));
+        buttonUpdate.addActionListener(event -> getObserver(UPDATE).notify(UPDATE, null));
+    }
+    
+    private void callObserverIfRowIsSelected(String id) {
+        if (tableProblems.getSelectedIdentifier() != null) {
+            getObserver(id).notify(id, tableProblems.getSelectedIdentifier());
+        }
+    }
+    
+    @Override
+    public List<String> getAvailableIds() {
+        return Arrays.asList(ADD, EDIT, DELETE, UPDATE);
+    }
+    
+    @Override
+    public void subscribe(String id, Observer observer) {
+        observers.put(id, observer);
+    }
+
+    @Override
+    public Observer getObserver(String id) {
+        return observers.getOrDefault(id, EmptyObserver.getInstanse());
+    }
+    
+    public final void setTableContent(Object[][] content) {
+        tableProblems.setTableContent(content, TABLE_HEADERS);
+    }
+    
+}
+\end{verbatim}
+
+\section*{\texttt{MainController.java}}
+\begin{verbatim}
+package com.ran.interaction.controllers;
+
+// Импорт классов
+
+public class MainController {
+
+    private ProblemsCreator creator;
+    private MainFrame mainFrame;
+
+    public void init() {
+        creator = new ProblemsCreator();
+        creator.init();
+    }
+    
+    public void showFrame() {
+        EventQueue.invokeLater(() -> {
+            try {
+                for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+                    if ("Nimbus".equals(info.getName())) {
+                        UIManager.setLookAndFeel(info.getClassName());
+                        break;
+                    }
+                }
+            } catch (ClassNotFoundException | InstantiationException |
+                    IllegalAccessException | UnsupportedLookAndFeelException exception) {
+                InteractionLogging.logger.log(Level.FINE,
+                        "Cannot set Nimbus Look and Feel", exception);
+            }
+            mainFrame = new MainFrame();
+            configurateMainFrame(mainFrame);
+            mainFrame.setVisible(true);
+        });
+    }
+
+    private void configurateMainFrame(MainFrame mainFrame) {
+        mainFrame.addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent event) {
+                creator.stop();
+            }
+        });
+        SubmissionsPanel submissionsPanel = mainFrame.getSubmissionsPanel();
+        updateSubmissions(null, null);
+        submissionsPanel.subscribe(SubmissionsPanel.ADD, this::addSubmission);
+        submissionsPanel.subscribe(SubmissionsPanel.RESUBMIT, this::submitSubmission);
+        submissionsPanel.subscribe(SubmissionsPanel.VIEW_CODE, this::viewSubmissionCode);
+        submissionsPanel.subscribe(SubmissionsPanel.DELETE, this::deleteSubmission);
+        submissionsPanel.subscribe(SubmissionsPanel.UPDATE, this::updateSubmissions);
+        ProblemsPanel problemsPanel = mainFrame.getProblemsPanel();
+        updateProblems(null, null);
+        problemsPanel.subscribe(ProblemsPanel.ADD, this::addProblem);
+        problemsPanel.subscribe(ProblemsPanel.EDIT, this::editProblem);
+        problemsPanel.subscribe(ProblemsPanel.DELETE, this::deleteProblem);
+        problemsPanel.subscribe(ProblemsPanel.UPDATE, this::updateProblems);
+    }
+    
+    private void addSubmission(String id, Object parameter) {
+        SubmissionCreationController creationController = new SubmissionCreationController();
+        creationController.setFileSupplier(creator.getFileSupplier());
+        creationController.showDialog();
+        String submissionFolder = creationController.getSubmissionFolder();
+        if (submissionFolder != null) {
+            updateSubmissions(null, null);
+            submitSubmission(null, submissionFolder);
+        }
+    }
+    
+    private void submitSubmission(String id, Object parameter) {
+        String submissionFolder = parameter.toString();
+        SubmissionResultController resultController = new SubmissionResultController();
+        resultController.setFileSupplier(creator.getFileSupplier());
+        resultController.setTestingSystem(creator.getTestingSystem());
+        resultController.setSubmissionFolder(submissionFolder);
+        resultController.showDialog();
+        updateSubmissions(null, null);
+    }
+    
+    private void viewSubmissionCode(String id, Object parameter) {
+        String submissionFolder = parameter.toString();
+        Path sourceFilePath = creator.getFileSupplier()
+                .getSubmissionCodeSupplier(submissionFolder).getSourceFile();
+        FileEditorController editorController = new FileEditorController();
+        editorController.showDialog(sourceFilePath, true);
+    }
+    
+    private void deleteSubmission(String id, Object parameter) {
+        int answer = SwingUtil.showYesNoDialog(mainFrame,
+                SubmissionsPanel.DELETING_MESSAGE, SubmissionsPanel.DELETING_TITLE);
+        if (answer == JOptionPane.YES_OPTION) {
+            creator.getFileSupplier().deleteSubmissionFolder(parameter.toString());
+            updateSubmissions(null, null);
+        }
+    }
+    
+    private void updateSubmissions(String id, Object parameter) {
+        FileSupplier fileSupplier = creator.getFileSupplier();
+        Properties properties = PresentationSupport.getPresentationProperties();
+        List<String> submissionNumbers = fileSupplier.getSubmissionsFolderNames();
+        Object[][] content = SwingUtil.prepareTableContent(submissionNumbers, (number, row) -> {
+            row.add(number);
+            SubmissionDescriptor descriptor = fileSupplier.getSubmissionDescriptor(number);
+            String problemNumber = descriptor.getProblemName();
+            row.add(fileSupplier.getProblemsFolderNames().contains(problemNumber) ?
+                    fileSupplier.getProblemDescriptor(problemNumber).getProblemName() : "");
+            row.add(properties.getProperty(descriptor.getEvaluationType()));
+            row.add(properties.getProperty(descriptor.getCompilatorName()));
+            row.add(TestingUtil.getVerdictDescription(descriptor.getVerdict(),
+                    descriptor.getDecisionPoints(), descriptor.getWrongTestNumber()));
+            row.add(TestingUtil.getTimeDescription(descriptor.getDecisionTime()));
+        });
+        mainFrame.getSubmissionsPanel().setTableContent(content);
+    }
+    
+    private void addProblem(String id, Object parameter) {
+        creator.getFileSupplier().addProblemFolder();
+        updateProblems(null, null);
+    }
+    
+    private void editProblem(String id, Object parameter) {
+        ProblemController problemController = new ProblemController();
+        problemController.setFileSupplier(creator.getFileSupplier());
+        problemController.setTestingSystem(creator.getTestingSystem());
+        problemController.setProblemFolder(parameter.toString());
+        problemController.showDialog();
+        updateProblems(null, null);
+        updateSubmissions(null, null);
+    }
+    
+    private void deleteProblem(String id, Object parameter) {
+        int answer = SwingUtil.showYesNoDialog(mainFrame,
+                ProblemsPanel.DELETING_MESSAGE, ProblemsPanel.DELETING_TITLE);
+        if (answer == JOptionPane.YES_OPTION) {
+            creator.getFileSupplier().deleteProblemFolder(parameter.toString());
+            updateProblems(null, null);
+        }
+    }
+    
+    private void updateProblems(String id, Object parameter) {
+        FileSupplier fileSupplier = creator.getFileSupplier();
+        List<String> problemNumbers = fileSupplier.getProblemsFolderNames();
+        Properties presentationProperties = PresentationSupport.getPresentationProperties();
+        Object[][] content = SwingUtil.prepareTableContent(problemNumbers, (number, row) -> {
+            row.add(number);
+            ProblemDescriptor descriptor = fileSupplier.getProblemDescriptor(number);
+            row.add(descriptor.getProblemName());
+            row.add(TestingUtil.getTimeDescription(descriptor.getTimeLimit()));
+            row.add(TestingUtil.getMemoryDescription(descriptor.getMemoryLimit()));
+            row.add(presentationProperties.getProperty(descriptor.getCheckerType()));
+        });
+        mainFrame.getProblemsPanel().setTableContent(content);
+    }
+
+}
+\end{verbatim}
+
+\section*{\texttt{ProblemsCreator.java}}
+\begin{verbatim}
+package com.ran.interaction.controllers;
+
+// Импорт классов
+
+public class ProblemsCreator {
+
+    private static final String TESTING_SYSTEM_THREADS_DEFAULT = "10";
+    private static final String FILE_SYSTEM_PATH_DEFAULT = System.getProperty("user.dir");
+
+    private TestingSystem testingSystem;
+    private FileSupplier fileSupplier;
+
+    public void init() {
+        Map<String, String> creatorParams = new CreatorParamsReader().getCreatorParams();
+        String fileSystemPath = creatorParams.getOrDefault(
+                CreatorParamsReader.FILE_SYSTEM_PATH_PARAM_NAME, FILE_SYSTEM_PATH_DEFAULT);
+        fileSupplier = new StandardFileSupplier(Paths.get(fileSystemPath));
+        String testingSystemThreads = creatorParams.getOrDefault(CreatorParamsReader
+                .TESTING_SYSTEM_THREADS_PARAM_NAME, TESTING_SYSTEM_THREADS_DEFAULT);
+        MultithreadTestingSystem multithreadTestingSystem
+                = MultithreadTestingSystem.getDefault();
+        multithreadTestingSystem.setThreadsQuantity(Integer.parseInt(testingSystemThreads));
+        multithreadTestingSystem.setFileSupplier(new TestingFileSupplierImpl(fileSupplier));
+        testingSystem = multithreadTestingSystem;
+        testingSystem.start();
+    }
+
+    public void stop() {
+        testingSystem.stop();
+    }
+
+    public TestingSystem getTestingSystem() {
+        return testingSystem;
+    }
+
+    public FileSupplier getFileSupplier() {
+        return fileSupplier;
+    }
+
+}
+
+class CreatorParamsReader {
+
+    public static final String CREATOR_PARAMS_FILE = "creator-params.xml";
+    public static final String TESTING_SYSTEM_THREADS_PARAM_NAME = "testingSystemThreads";
+    public static final String FILE_SYSTEM_PATH_PARAM_NAME = "fileSystemPath";
+    public static final String PARAM_NAME_NODE_NAME = "name";
+    public static final String PARAM_VALUE_NODE_NAME = "value";
+
+    public Map<String, String> getCreatorParams() {
+        Map<String, String> creatorParams = new HashMap<>();
+        try (InputStream creatorParamStream = ProblemsCreator.class
+                .getResourceAsStream(CREATOR_PARAMS_FILE)) {
+            DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance()
+                    .newDocumentBuilder();
+            Document document = documentBuilder.parse(creatorParamStream);
+            Element rootElement = document.getDocumentElement();
+            NodeList paramList = rootElement.getChildNodes();
+            for (int i = 0; i < paramList.getLength(); i++) {
+                Node node = paramList.item(i);
+                if (node instanceof Element) {
+                    updateCreatorParamsMap(creatorParams, node);
+                }
+            }
+        } catch (Exception exception) {
+            InteractionLogging.logger.log(Level.FINE,
+                    "Exception while reading creator-params.xml", exception);
+        }
+        return creatorParams;
+    }
+
+    private void updateCreatorParamsMap(Map<String, String> creatorParams, Node paramNode) {
+        NodeList nodeList = paramNode.getChildNodes();
+        String paramName = null;
+        String paramValue = null;
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            Node node = nodeList.item(i);
+            if (node instanceof Element) {
+                String nodeName = node.getNodeName();
+                String nodeValue = node.getFirstChild().getNodeValue();
+                switch (nodeName) {
+                    case PARAM_NAME_NODE_NAME: paramName = nodeValue; break;
+                    case PARAM_VALUE_NODE_NAME: paramValue = nodeValue; break;
+                }
+            }
+        }
+        creatorParams.put(paramName, paramValue);
+    }
+}
+\end{verbatim}
