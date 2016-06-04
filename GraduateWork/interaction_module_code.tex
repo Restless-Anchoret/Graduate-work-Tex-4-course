@@ -3,13 +3,16 @@
 package com.ran.interaction.main;
 
 // Импорт классов
+// ...
 
 public class Main {
 
+    // Подключение класса специального чекера
     private static void plugInClasses() {
         JavaClassChecker.plugInClass();
     }
 
+    // Запуск главного контроллера
     public static void main(String[] args) {
         plugInClasses();
         MainController controller = new MainController();
@@ -24,9 +27,11 @@ public class Main {
 \begin{verbatim}
 package com.ran.interaction.observer;
 
+// Интерфейс наблюдателя
 @FunctionalInterface
 public interface Observer {
 
+    // Метод для оповещения наблюдателя
     void notify(String id, Object parameter);
     
 }
@@ -38,18 +43,23 @@ package com.ran.interaction.observer;
 
 import java.util.List;
 
+// Интерфейс издателя
 public interface Publisher {
 
+    // Метод доступа к списку доступных идентификаторов событий
     List<String> getAvailableIds();
+    // Метод подписки наблюдателя к определённому событию
     void subscribe(String id, Observer observer);
     Observer getObserver(String id);
     
+    // Метод инициализации наблюдателей по умолчанию
     default void initObservers() {
         for (String id: getAvailableIds()) {
             subscribe(id, EmptyObserver.getInstanse());
         }
     }
     
+    // Метод оповещения наблюдателей об определённом событии
     default void notifyObservers(Object parameter) {
         for (String id: getAvailableIds()) {
             getObserver(id).notify(id, parameter);
@@ -64,7 +74,9 @@ public interface Publisher {
 package com.ran.interaction.windows;
 
 // Импорт классов
+// ...
 
+// Главное окно приложения
 public class MainFrame extends JFrame {
 
     private static final String SUBMISSIONS = "Submissions";
@@ -76,7 +88,8 @@ public class MainFrame extends JFrame {
         initCustomComponents();
     }
 
-    // Код создания интерфейса окна, поля с компонентами                  
+    // Код создания интерфейса окна, поля с компонентами
+    // ...
 
     private SubmissionsPanel submissionsPanel;
     private ProblemsPanel problemsPanel;
@@ -106,9 +119,12 @@ public class MainFrame extends JFrame {
 package com.ran.interaction.panels;
 
 // Импорт классов
+// ...
 
+// Панель с посылками
 public class SubmissionsPanel extends JPanel implements Publisher {
 
+    // Идентификаторы событий панели
     public static final String ADD = "add_submission";
     public static final String RESUBMIT = "resubmit_submission";
     public static final String DELETE = "delete_submission";
@@ -116,6 +132,7 @@ public class SubmissionsPanel extends JPanel implements Publisher {
     public static final String VIEW_CODE = "view_submission_code";
     
     // Дополнительные статические константы
+    // ...
     
     public SubmissionsPanel() {
         initComponents();
@@ -124,10 +141,13 @@ public class SubmissionsPanel extends JPanel implements Publisher {
         initObservers();
     }
 
-    // Код создания интерфейса окна, поля с компонентами                     
+    // Код создания интерфейса окна, поля с компонентами 
+    // ...                    
 
+    // Набор зарегистрированных наблюдателей
     private Map<String, Observer> observers = new HashMap<>();
     
+    // Настройка механизма оповещения наблюдателей о событиях
     private void initCustomComponents() {
         buttonAdd.addActionListener(event -> getObserver(ADD).notify(ADD, null));
         buttonResubmit.addActionListener(event -> callObserverIfRowIsSelected(RESUBMIT));
@@ -169,15 +189,19 @@ public class SubmissionsPanel extends JPanel implements Publisher {
 package com.ran.interaction.panels;
 
 // Импорт классов
+// ...
 
+// Панель с задачами
 public class ProblemsPanel extends JPanel implements Publisher {
     
+    // Идентификаторы событий панели
     public static final String ADD = "add_problem";
     public static final String EDIT = "edit_problem";
     public static final String DELETE = "delete_problem";
     public static final String UPDATE = "update_problems";
     
     // Дополнительные статические константы
+    // ...
     
     public ProblemsPanel() {
         initComponents();
@@ -187,9 +211,12 @@ public class ProblemsPanel extends JPanel implements Publisher {
     }
 
     // Код создания интерфейса окна, поля с компонентами
+    // ...
 
+    // Набор зарегистрированных наблюдателей
     private Map<String, Observer> observers = new HashMap<>();
     
+    // Настройка механизма оповещения наблюдателей о событиях
     private void initCustomComponents() {
         buttonAdd.addActionListener(event -> getObserver(ADD).notify(ADD, null));
         buttonEdit.addActionListener(event -> callObserverIfRowIsSelected(EDIT));
@@ -230,10 +257,14 @@ public class ProblemsPanel extends JPanel implements Publisher {
 package com.ran.interaction.controllers;
 
 // Импорт классов
+// ...
 
+// Главный контроллер приложения
 public class MainController {
 
+    // Объединённые ядро тестирующей системы и поставщик файлов
     private ProblemsCreator creator;
+    // Главное окно приложения
     private MainFrame mainFrame;
 
     public void init() {
@@ -261,6 +292,8 @@ public class MainController {
         });
     }
 
+    // Настройка главного окна приложения
+    // Подписка наблюдателей
     private void configurateMainFrame(MainFrame mainFrame) {
         mainFrame.addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent event) {
@@ -282,6 +315,7 @@ public class MainController {
         problemsPanel.subscribe(ProblemsPanel.UPDATE, this::updateProblems);
     }
     
+    // Обработчик события добавления новой посылки
     private void addSubmission(String id, Object parameter) {
         SubmissionCreationController creationController = new SubmissionCreationController();
         creationController.setFileSupplier(creator.getFileSupplier());
@@ -293,6 +327,7 @@ public class MainController {
         }
     }
     
+    // Обработчик события запуска посылки
     private void submitSubmission(String id, Object parameter) {
         String submissionFolder = parameter.toString();
         SubmissionResultController resultController = new SubmissionResultController();
@@ -303,6 +338,7 @@ public class MainController {
         updateSubmissions(null, null);
     }
     
+    // Обработчик события просмотра кода посылки
     private void viewSubmissionCode(String id, Object parameter) {
         String submissionFolder = parameter.toString();
         Path sourceFilePath = creator.getFileSupplier()
@@ -311,6 +347,7 @@ public class MainController {
         editorController.showDialog(sourceFilePath, true);
     }
     
+    // Обработчик события удаления посылки
     private void deleteSubmission(String id, Object parameter) {
         int answer = SwingUtil.showYesNoDialog(mainFrame,
                 SubmissionsPanel.DELETING_MESSAGE, SubmissionsPanel.DELETING_TITLE);
@@ -320,6 +357,7 @@ public class MainController {
         }
     }
     
+    // Обработчик события обновления посылок
     private void updateSubmissions(String id, Object parameter) {
         FileSupplier fileSupplier = creator.getFileSupplier();
         Properties properties = PresentationSupport.getPresentationProperties();
@@ -339,11 +377,13 @@ public class MainController {
         mainFrame.getSubmissionsPanel().setTableContent(content);
     }
     
+    // Обработчик события добавления задачи
     private void addProblem(String id, Object parameter) {
         creator.getFileSupplier().addProblemFolder();
         updateProblems(null, null);
     }
     
+    // Обработчик события редактирования задачи
     private void editProblem(String id, Object parameter) {
         ProblemController problemController = new ProblemController();
         problemController.setFileSupplier(creator.getFileSupplier());
@@ -354,6 +394,7 @@ public class MainController {
         updateSubmissions(null, null);
     }
     
+    // Обработчик события удаления задачи
     private void deleteProblem(String id, Object parameter) {
         int answer = SwingUtil.showYesNoDialog(mainFrame,
                 ProblemsPanel.DELETING_MESSAGE, ProblemsPanel.DELETING_TITLE);
@@ -363,6 +404,7 @@ public class MainController {
         }
     }
     
+    // Обработчик события обновления задач
     private void updateProblems(String id, Object parameter) {
         FileSupplier fileSupplier = creator.getFileSupplier();
         List<String> problemNumbers = fileSupplier.getProblemsFolderNames();
@@ -386,15 +428,20 @@ public class MainController {
 package com.ran.interaction.controllers;
 
 // Импорт классов
+// ...
 
+// Объединённые ядро тестирующей системы и поставщик файлов
 public class ProblemsCreator {
 
     private static final String TESTING_SYSTEM_THREADS_DEFAULT = "10";
     private static final String FILE_SYSTEM_PATH_DEFAULT = System.getProperty("user.dir");
 
+    // Ядро тестирующей системы
     private TestingSystem testingSystem;
+    // Поставщик файлов
     private FileSupplier fileSupplier;
 
+    // Загрузка конфигурационных свойств, инициализация
     public void init() {
         Map<String, String> creatorParams = new CreatorParamsReader().getCreatorParams();
         String fileSystemPath = creatorParams.getOrDefault(
@@ -424,6 +471,7 @@ public class ProblemsCreator {
 
 }
 
+// Вспомогательный класс для парсинга XML-файла со свойствами приложения
 class CreatorParamsReader {
 
     public static final String CREATOR_PARAMS_FILE = "creator-params.xml";

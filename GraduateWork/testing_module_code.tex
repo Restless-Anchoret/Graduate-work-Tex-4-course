@@ -2,6 +2,7 @@
 \begin{verbatim}
 package com.ran.testing.system;
 
+// Интерфейс ядра тестирующей системы
 public interface TestingSystem {
     
     public void start();
@@ -16,7 +17,9 @@ public interface TestingSystem {
 package com.ran.testing.system;
 
 // Импорт классов
+// ...
 
+// Реализация ядра тестирующей системы, работающая во многих потоках
 public class MultithreadTestingSystem implements TestingSystem {
 
     private static final int DEFAULT_THREADS_QUANTITY = Runtime.getRuntime()
@@ -30,14 +33,19 @@ public class MultithreadTestingSystem implements TestingSystem {
         return defaultSystem;
     }
     
+    // Максимальное количество используемых потоков
     private int threadsQuantity;
+    // Поставщик временных и конфигурационных файлов
     private TestingFileSupplier fileSupplier;
     private ExecutorService service;
     private ExecutorCompletionService<TestingInfo> completionService;
+    // Счётчик текущего количества проверяемых посылок
     private int submissionsCounter = 0;
+    // Поток для обработки результатов проверки
     private Thread resultHandlersThread;
 
     // Конструкторы, геттеры, сеттеры
+    // ...
 
     public synchronized int getSubmissionsCounter() {
         return submissionsCounter;
@@ -51,6 +59,7 @@ public class MultithreadTestingSystem implements TestingSystem {
         submissionsCounter--;
     }
     
+    // Инициализация и старт ядра тестирующей системы
     @Override
     public void start() {
         service = Executors.newFixedThreadPool(threadsQuantity);
@@ -59,18 +68,22 @@ public class MultithreadTestingSystem implements TestingSystem {
         resultHandlersThread.start();
     }
 
+    // Добавление новой посылки на проверку
     @Override
     public void addSubmission(TestingInfo info) {
         submissionsCounterUp();
         completionService.submit(new TestingTask(info, fileSupplier));
     }
 
+    // Остановка ядра тестирующей системы
     @Override
     public void stop() {
         service.shutdown();
         resultHandlersThread.interrupt();
     }
     
+    // Процесс обработки результатов проверки очередной посылки
+    // Выполняется в отдельном потоке
     private class ResultTracking implements Runnable {
         public void run() {
             boolean interrupted = false;
@@ -81,14 +94,17 @@ public class MultithreadTestingSystem implements TestingSystem {
                     TestingInfo info = future.get();
                     info.getTestResultHandler().process(info);
                 } // Перехват исключений, вывод в лог
+                // ...
             }
         }
     }
     
+    // Задача тестирования одной посылки
     private static class TestingTask implements Callable<TestingInfo> {
         private TestingInfo info;
         private TestingFileSupplier fileSupplier;
         // Конструктор
+        // ...
         public TestingInfo call() {
             info.getProblemTester().performTesting(fileSupplier, info);
             return info;
@@ -102,6 +118,7 @@ public class MultithreadTestingSystem implements TestingSystem {
 \begin{verbatim}
 package com.ran.testing.system;
 
+// Виды вердиктов по посылке или тесту
 public enum Verdict {
 
     NOT_TESTED,
@@ -125,6 +142,7 @@ public enum Verdict {
 \begin{verbatim}
 package com.ran.testing.system;
 
+// Полная информация о результате тестирования
 public class VerdictInfo implements Cloneable {
 
     public static final VerdictInfo VERDICT_NOT_TESTED = new VerdictInfo(Verdict.NOT_TESTED);
@@ -140,6 +158,7 @@ public class VerdictInfo implements Cloneable {
     private Integer wrongTestNumber;
 
     // Конструкторы, геттеры, сеттеры
+    // ...
 
     @Override
     public VerdictInfo clone() {
@@ -157,41 +176,38 @@ public class VerdictInfo implements Cloneable {
 package com.ran.testing.system;
 
 // Импорт классов
+// ...
 
+// Полная информация о том, как нужно тестировать очередную посылку
 public class TestingInfo {
 
+    // Обработчик результатов проверки посылки
     private TestResultHandler testResultHandler;
+    // Алгоритм проверки посылки
     private ProblemTester problemTester;
+    // Система оценивания
     private EvaluationSystem evaluationSystem;
+    // Инструментарий языка программирования
     private LanguageToolkit languageToolkit;
+    // Способ проверки корректности ответа по тесту
     private Checker checker;
+    // Поставщик файлов с исходным кодом и скомпилированным файлом
     private CodeFileSupplier codeFileSupplier;
+    // Поставщик файлов с тестами
     private ProblemFileSupplier problemFileSupplier;
+    // Необходимость тестировать только на претестах
     private boolean pretestsOnly;
+    // Ограничение по времени
     private Integer timeLimit;
+    // Ограничение по памяти
     private Short memoryLimit;
+    // Таблица с полной информацией о тестах из каждой группы
     private TestTable testTable;
+    // Результаты тестирования посылки
     private VerdictInfo verdictInfo = null;
 
-    public TestingInfo(TestResultHandler testResultHandler, ProblemTester problemTester,
-            EvaluationSystem evaluationSystem, LanguageToolkit languageToolkit,Checker checker,
-            CodeFileSupplier codeFileSupplier, ProblemFileSupplier problemFileSupplier,
-            boolean pretestsOnly, Integer timeLimit,
-            Short memoryLimit, TestTable testTable) {
-        this.testResultHandler = testResultHandler;
-        this.problemTester = problemTester;
-        this.evaluationSystem = evaluationSystem;
-        this.languageToolkit = languageToolkit;
-        this.checker = checker;
-        this.codeFileSupplier = codeFileSupplier;
-        this.problemFileSupplier = problemFileSupplier;
-        this.pretestsOnly = pretestsOnly;
-        this.timeLimit = timeLimit;
-        this.memoryLimit = memoryLimit;
-        this.testTable = testTable;
-    }
-
-    // Геттеры, сеттеры
+    // Конструктор, геттеры, сеттеры
+    // ...
 
 }
 \end{verbatim}
@@ -201,7 +217,9 @@ public class TestingInfo {
 package com.ran.testing.tester;
 
 // Импорт классов
+// ...
 
+// Алгоритм тестирования посылки
 public interface ProblemTester {
 
     void performTesting(TestingFileSupplier fileSupplier, TestingInfo info);
@@ -214,7 +232,9 @@ public interface ProblemTester {
 package com.ran.testing.tester;
 
 // Импорт классов
+// ...
 
+// Стандартный алгоритм проверки посылки
 public class CodingProblemTester implements ProblemTester {
 
     @Override
@@ -250,6 +270,7 @@ public class CodingProblemTester implements ProblemTester {
         info.setVerdictInfo(verdictInfo);
     }
     
+    // Делегат для передачи доступа к запуску тестирования системе оценивания
     private static class CodingTesterDelegate implements EvaluationSystem.TesterDelegate {
 
         private TestingInfo info;
@@ -343,6 +364,7 @@ public class CodingProblemTester implements ProblemTester {
 package com.ran.testing.evaluation;
 
 // Импорт классов
+// ...
 
 public interface EvaluationSystem {
 
@@ -351,16 +373,19 @@ public interface EvaluationSystem {
     ProblemResult countProblemResult(TreeMap<Date, VerdictInfo> verdictsMap,
             Date competitionBeginning);
 
+    // Интерфейс делегата для доступа к запуску тестирования
     public interface TesterDelegate {
         TestTable getTestTable();
         Integer performTestGroup(TestGroupType type, boolean upToFirstFailure);
         VerdictInfo performOneTest(TestGroupType type, int testNumber);
     }
     
+    // Результат по определённой задаче
     public class ProblemResult {
         private short points;
         private int fine;
         // Конструктор, геттеры, сеттеры
+        // ...
     }
 
 }
@@ -371,11 +396,13 @@ public interface EvaluationSystem {
 package com.ran.testing.evaluation;
 
 // Импорт классов
+// ...
 
 public class ICPCEvaluationSystem implements EvaluationSystem {
 
     private static final int FINE_FOR_FAILURE = 20;
     
+    // Метод, определяющий порядок запуска посылки на тестах
     @Override
     public void orderTesting(TesterDelegate delegate, boolean pretestsOnly) {
         int lastGroupIndex = (pretestsOnly ? TestGroupType.PRETESTS.ordinal() :
@@ -389,6 +416,7 @@ public class ICPCEvaluationSystem implements EvaluationSystem {
         }
     }
     
+    // Определение вердикта по определённой посылке
     @Override
     public VerdictInfo getVerdictInfo(TestTable testTable, boolean pretestsOnly) {
         Integer decisionTime = null;
@@ -423,6 +451,7 @@ public class ICPCEvaluationSystem implements EvaluationSystem {
                 .setDecisionMemory(decisionMemory);
     }
 
+    // Определение результата по некоторой задаче
     @Override
     public ProblemResult countProblemResult(TreeMap<Date, VerdictInfo> verdictsMap,
             Date competitionBeginning) {
@@ -449,7 +478,9 @@ public class ICPCEvaluationSystem implements EvaluationSystem {
 package com.ran.testing.language;
 
 // Импорт классов
+// ...
 
+// Инструментарий языка программирования
 public interface LanguageToolkit {
     
     int compile(Path sourceFile, Path compileFolder, Path configFolder) throws FailException;
@@ -460,11 +491,13 @@ public interface LanguageToolkit {
             throws FailException, TimeLimitException, MemoryLimitException,
             SecurityViolatedException;
 
+    // Результат запуска программы
     public class ExecutionInfo {
         private int exitCode;
         private Integer decisionTime;
         private Short decisionMemory;
         // Конструктор, геттеры
+        // ...
     }
     
     static final OutputStream EMPTY_OUTPUT_STREAM = new OutputStream() {
@@ -481,7 +514,9 @@ public interface LanguageToolkit {
 package com.ran.testing.language;
 
 // Импорт классов
+// ...
 
+// Инструментарий для языка Java
 public class JavaLanguageToolkit implements LanguageToolkit {
     
     private static final String POLICY_FILE_NAME = "java_problem.policy";
@@ -490,10 +525,12 @@ public class JavaLanguageToolkit implements LanguageToolkit {
     private static final String STACK_SIZE_PROPERTY = "stack_size";
     
     // Другие статические константы
+    // ...
     
     private static Properties javaProperties = null;
     private static Path javaPropertiesLocation = null;
     
+    // Метод доступа к заданным свойствам инструментария Java
     private static Properties getJavaProperties(Path configFolder) throws FailException {
         if (javaProperties == null || !Objects.equals(configFolder, javaPropertiesLocation)) {
             javaProperties = new Properties();
@@ -509,12 +546,14 @@ public class JavaLanguageToolkit implements LanguageToolkit {
         return javaProperties;
     }
     
+    // Компиляция программы на Java (без вывода ошибок)
     @Override
     public int compile(Path sourceFile, Path compileFolder, Path configFolder)
             throws FailException {
         return compile(sourceFile, compileFolder, configFolder, EMPTY_OUTPUT_STREAM);
     }
 
+    // Компиляция программы на Java (с выводом ошибок)
     @Override
     public int compile(Path sourceFile, Path compileFolder, Path configFolder,
             OutputStream errorStream) throws FailException {
@@ -526,6 +565,7 @@ public class JavaLanguageToolkit implements LanguageToolkit {
                 sourceFile.toString());
     }
 
+    // Запуск программы на Java
     @Override
     public ExecutionInfo execute(Path compileFile, Path inputFile, Path outputFile,
             Path configFolder, int timeLimit, short memoryLimit)
@@ -580,6 +620,7 @@ public class JavaLanguageToolkit implements LanguageToolkit {
     }
     
     // Вспомогательные методы
+    // ...
 
 }
 \end{verbatim}
@@ -589,7 +630,9 @@ public class JavaLanguageToolkit implements LanguageToolkit {
 package com.ran.testing.checker;
 
 // Импорт классов
+// ...
 
+// Способ проверки корректности ответа
 public interface Checker {
 
     default void initialize(ProblemFileSupplier problemFileSupplier) { }
@@ -603,9 +646,12 @@ public interface Checker {
 package com.ran.testing.checker;
 
 // Импорт классов
+// ...
 
+// Проверка методом сравнения с ответом жюри
 public class MatchChecker implements Checker {
     
+    // Проверка ответа на одном тесте
     @Override
     public Verdict check(Path inputPath, Path outputPath, Path answerPath) {
         if (Files.notExists(inputPath) || Files.notExists(outputPath)) {
@@ -624,8 +670,10 @@ public class MatchChecker implements Checker {
                 }
             } while (true);
         } // Перехват исключений, вывод в лог
+        // ...
     }
     
+    // Класс для разбора файла по лексемам
     private static class Tokenizer implements Closeable {
 
         private BufferedReader reader;

@@ -3,9 +3,12 @@
 package com.ran.filesystem.supplier;
 
 // Импорт классов
+// ...
 
+// Главный интерфейс поставщика файлов
 public interface FileSupplier {
 
+    // Методы для работы с папками задач
     String addProblemFolder();
     void deleteProblemFolder(String problemFolder);
     List<String> getProblemsFolderNames();
@@ -13,6 +16,7 @@ public interface FileSupplier {
     Path getProblemStatementPath(String problemFolder);
     boolean putProblemStatementPath(String problemFolder, Path newStatementPath);
     
+    // Методы для работы с папками тестов
     boolean addTestInputFiles(String problemFolder, String testGroupType,
             List<Path> inputFilePaths);
     boolean addTestAnswerFile(String problemFolder, String testGroupType, int testNumber,
@@ -23,18 +27,22 @@ public interface FileSupplier {
     int getTestsQuantity(String problemFolder, String testGroupType);
     TestGroupDescriptor getTestGroupDescriptor(String problemFolder, String testGroupType);
     
+    // Метод для работы с папкой чекера
     CodeSupplier getCheckerCodeSupplier(String problemFolder);
 
+    // Методы для работы с папками генераторов
     String addGeneratorFolder(String problemFolder);
     void deleteGeneratorFolder(String problemFolder, String generatorFolder);
     List<String> getGeneratorFolders(String problemFolder);
     CodeSupplier getGeneratorCodeSupplier(String problemFolder, String generatorFolder);
     
+    // Методы для работы с папками валидаторов
     String addValidatorFolder(String problemFolder);
     void deleteValidatorFolder(String problemFolder, String validatorFolder);
     List<String> getValidatorFolders(String problemFolder);
     CodeSupplier getValidatorCodeSupplier(String problemFolder, String validatorFolder);
 
+    // Методы для работы с папками авторских решений
     String addAuthorDecisionFolder(String problemFolder);
     void deleteAuthorDecisionFolder(String problemFolder, String authorDecisionFolder);
     List<String> getAuthorDecisionsFolderNames(String problemFolder);
@@ -43,16 +51,19 @@ public interface FileSupplier {
     AuthorDecisionDescriptor getAuthorDecisionDescriptor(String problemFolder,
             String authorDecisionFolder);
 
+    // Методы для работы с папками посылок
     String addSubmissionFolder();
     void deleteSubmissionFolder(String submissionFolder);
     List<String> getSubmissionsFolderNames();
     SubmissionDescriptor getSubmissionDescriptor(String submissionFolder);
     CodeSupplier getSubmissionCodeSupplier(String submissionFolder);
 
+    // Методы для работы с временными файлами
     Path getTempFile();
     void deleteTempFile(Path path);
     void deleteAllTempFiles();
 
+    // Метод доступа к папке с конфигурационными файлами
     Path getConfigurationFolder();
     
 }
@@ -64,6 +75,7 @@ package com.ran.filesystem.supplier;
 
 import java.nio.file.Path;
 
+// Интерфейс поставщика программных файлов
 public interface CodeSupplier {
 
     Path getFolder();
@@ -81,11 +93,16 @@ public interface CodeSupplier {
 package com.ran.filesystem.descriptor;
 
 // Импорт классов
+// ...
 
+// Класс для работы с XML-дескрипторами сущностей
 public class EntityDescriptor {
 
+    // Набор свойств сущности
     private Map<String, String> properties = new LinkedHashMap<>();
+    // Путь к XML-файлу
     private Path path;
+    // Имя корневого элемента в XML-файле
     private String rootNodeName;
 
     public EntityDescriptor(Path path, String rootNodeName) {
@@ -101,6 +118,7 @@ public class EntityDescriptor {
         properties.put(propertyName, propertyValue);
     }
     
+    // Загрузка свойств из XML-файла
     public void load() {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -124,6 +142,7 @@ public class EntityDescriptor {
         }
     }
     
+    // Сохранение свойств в XML-файле
     public void persist() {
         try (OutputStream stream = Files.newOutputStream(path)) {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -152,6 +171,7 @@ public class EntityDescriptor {
     }
     
     // Вспомогательные методы
+    // ...
     
 }
 \end{verbatim}

@@ -3,6 +3,7 @@
 package com.ran.development.gen;
 
 // Импорт классов
+// ...
 
 public abstract class Generator {
 
@@ -15,13 +16,18 @@ public abstract class Generator {
         };
     }
     
+    // Генератор псевдослучайных чисел
     private Random random;
+    // Поток вывода в файл
     private PrintStream output;
+    // Парсер регулярных выражений
     private RegularExpressionParser parser = new RegularExpressionParser();
     
     // Контструкторы, геттеры, сеттеры
+    // ...
     
     // print-методы
+    // ...
     
     protected int nextInt(int higherBound) {
         return random.nextInt(higherBound);
@@ -32,6 +38,7 @@ public abstract class Generator {
     }
     
     // Ещё next-методы
+    // ...
     
     protected int any(int[] values) {
         return values[random.nextInt(values.length)];
@@ -42,6 +49,7 @@ public abstract class Generator {
     }
     
     // Ещё any-методы
+    // ...
     
     protected char any(String regularExpression) {
         int quantity = parser.getCharactersQuantity(regularExpression);
@@ -65,6 +73,7 @@ public abstract class Generator {
         return stringsArray;
     }
     
+    // Метод непосредственной генерации входных данных
     abstract protected void generate(String[] args);
     
 }
@@ -75,21 +84,29 @@ public abstract class Generator {
 package com.ran.development.gen;
 
 // Импорт классов
+// ...
 
 public class MultiGenerator {
     
     private static final long MESSAGING_DELAY = 2000;
     
+    // Набор слушателей процесса генерации
     private DevelopmentListenerSupport listenerSupport = new DevelopmentListenerSupport();
+    // Поставщик генератора
     private Supplier<? extends Generator> generatorSupplier = () -> {
         return Generator.getDefault();
     };
+    // Инициализирующее значение генератора псевдослучайных чисел
     private int randomSeed = 0;
+    // Пути файлов для генерации входных данных
     private Path[] paths = { };
+    // Аргументы запуска генератора
     private String[] arguments = { };
     
     // Геттеры, сеттеры, методы работы со слушателями
+    // ...
     
+    // Запуск генератора в отдельном потоке
     public void performGenerating() {
         listenerSupport.fireProcessingStarted();
         Generator generator = generatorSupplier.get();
@@ -120,18 +137,22 @@ public class MultiGenerator {
                 }
                 listenerSupport.fireTaskIsDone(futureTask.get());
             } // Перехват исключений, вывод в лог
+            // ...
         }
         listenerSupport.fireProcessingFinished();
     }
     
     // Вспомогательные методы
+    // ...
     
+    // Задача запуска генератора
     private static class GeneratingTask implements Callable<DevelopmentResult> {
         private String[] arguments;
         private Generator generator;
         private int generatorNumber;
         
         // Конструктор
+        // ...
         
         @Override
         public DevelopmentResult call() {
@@ -139,6 +160,7 @@ public class MultiGenerator {
             try {
                 generator.generate(arguments);
             } // Перехват исключений, вывод в лог
+            // ...
             return new DevelopmentResult(generatorNumber, System.currentTimeMillis() - start);
         }
     }
@@ -151,6 +173,7 @@ public class MultiGenerator {
 package com.ran.development.valid;
 
 // Импорт классов
+// ...
 
 public abstract class Validator {
 
@@ -161,10 +184,13 @@ public abstract class Validator {
         };
     }
     
+    // Строгий ввод валидируемых входных данных
     private StrictInput input = StrictInput.getEmptyInput();
+    // Парсер регулярных выражений
     private RegularExpressionParser parser = new RegularExpressionParser();
 
     // Конструкторы, геттеры, сеттеры
+    // ...
     
     protected void error() throws ValidationException {
         throw new ValidationException(input.getState());
@@ -188,6 +214,7 @@ public abstract class Validator {
     }
     
     // Ещё inBounds-методы
+    // ...
     
     protected void matchesExpression(char symbol, String regularExpression)
             throws ValidationException {
@@ -222,7 +249,9 @@ public abstract class Validator {
     }
     
     // Ещё inValues-методы
+    // ...
     
+    // Метод-обёртка для проверки, что файл прочитал полностью
     public void performValidation(String[] args) throws ValidationException {
         validate(args);
         if (!input.isReaden()) {
@@ -230,6 +259,7 @@ public abstract class Validator {
         }
     }
     
+    // Метод непосредственной валидации входных данных
     public abstract void validate(String[] args) throws ValidationException;
     
 }
@@ -240,20 +270,27 @@ public abstract class Validator {
 package com.ran.development.valid;
 
 // Импорт классов
+// ...
 
 public class MultiValidator {
 
     private static final long MESSAGING_DELAY = 2000;
     
+    // Набор слушателей процесса валидации
     private DevelopmentListenerSupport listenerSupport = new DevelopmentListenerSupport();
+    // Поставщик валидатора
     private Supplier<? extends Validator> validatorSupplier = () -> {
         return Validator.getDefault();
     };
+    // Пути файлов с валидируемыми входными данными
     private Path[] paths = { };
+    // Аргументы запуска валидатора
     private String[] arguments = { };
     
     // Геттеры, сеттеры, методы работы со слушателями
+    // ...
     
+    // Запуск валидатора в отдельном потоке
     public void performValidating() {
         listenerSupport.fireProcessingStarted();
         Validator validator = validatorSupplier.get();
@@ -283,18 +320,22 @@ public class MultiValidator {
                 }
                 listenerSupport.fireTaskIsDone(futureTask.get());
             } // Перехват исключений, вывод в лог
+            // ...
         }
         listenerSupport.fireProcessingFinished();
     }
     
     // Вспомогательные методы
+    // ...
     
+    // Задача запуска валидатора
     private static class ValidatingTask implements Callable<DevelopmentResult> {
         private String[] arguments;
         private Validator validator;
         private int validatorNumber;
         
         // Конструктор
+        // ...
         
         @Override
         public DevelopmentResult call() {
@@ -311,6 +352,7 @@ public class MultiValidator {
                 return new DevelopmentResult(validatorNumber, message, DevelopmentResult.FAIL,
                         System.currentTimeMillis() - start);
             } // Перехват исключений, вывод в лог
+            // ...
             return new DevelopmentResult(validatorNumber, System.currentTimeMillis() - start);
         }
     }
@@ -323,6 +365,7 @@ public class MultiValidator {
 package com.ran.development.check;
 
 // Импорт классов
+// ...
 
 public abstract class Checker {
 
@@ -330,18 +373,24 @@ public abstract class Checker {
             WRONG_ANSWER = 1,
             FAIL = 2;
 
+    // Лексемный ввод входных данных
     private TokenInput input = TokenInput.getEmptyInput();
+    // Лексемный ввод ответа участника
     private TokenInput output = TokenInput.getEmptyInput();
+    // Лексемный ввод ответа жюри
     private TokenInput answer = TokenInput.getEmptyInput();
+    // Парсер регулярных выражений
     private RegularExpressionParser parser = new RegularExpressionParser();
 
     // Геттеры, сеттеры
+    // ...
 
     protected void quit(int resultInfo, String message) throws CheckResultException {
         throw new CheckResultException(resultInfo, message);
     }
 
     // Ещё quit-методы
+    // ...
 
     protected void quitIf(boolean condition, int resultInfo, String message)
             throws CheckResultException {
@@ -351,6 +400,7 @@ public abstract class Checker {
     }
 
     // Ещё quitIf-методы
+    // ...
 
     protected void ensureIf(boolean condition, String message) throws CheckResultException {
         if (!condition) {
@@ -359,7 +409,9 @@ public abstract class Checker {
     }
 
     // Ещё ensureIf-методы
+    // ...
 
+    // Метод-обёртка для перехвата исключения
     public void performChecking() throws CheckResultException {
         try {
             check();
@@ -372,6 +424,7 @@ public abstract class Checker {
         quit(FAIL, "Checker did not tell result of checking");
     }
 
+    // Метод непосредственной проверки ответа
     public abstract void check() throws CheckResultException;
 
 }
@@ -382,19 +435,25 @@ public abstract class Checker {
 package com.ran.development.check;
 
 // Импорт классов
+// ...
 
 public class WrapperChecker {
 
     private static final long DEFAULT_DELAY_TIME = 10_000;
     private static final long MESSAGING_DELAY = 2000;
 
+    // Поставщик чекера
     private Supplier<? extends Checker> checkerSupplier;
     private Checker checker = null;
+    // Набор слушателей процесса проверки
     private DevelopmentListenerSupport listenerSupport = new DevelopmentListenerSupport();
+    // Максимально допустимое время проверки на одном тесте
     private long delayTime;
 
     // Конструкторы, методы работы со слушателями
+    // ...
 
+    // Запуск чекера на одном тесте в отдельном потоке
     public int check(Path inputPath, Path outputPath, Path answerPath) {
         listenerSupport.fireTaskProcessingStarted(0);
         if (checker == null) {
@@ -441,18 +500,23 @@ public class WrapperChecker {
             listenerSupport.fireTaskIsDone(checkingResult.getDevelopmentResult());
             return checkingResult.getCheckingInfo();
         } // Перехват исключений, вывод в лог
+        // ...
         return Checker.FAIL;
     }
 
+    // Результат проверки чекера на одном тесте
     private static class CheckingResult {
         private DevelopmentResult developmentResult;
         private int checkingInfo;
         // Конструкторы, геттеры
+        // ...
     }
 
+    // Задача проверки на одном тесте
     private static class CheckingTask implements Callable<CheckingResult> {
         private Checker checker;
         // Конструктор
+        // ...
 
         @Override
         public CheckingResult call() {
@@ -468,6 +532,7 @@ public class WrapperChecker {
                         System.currentTimeMillis() - start);
                 return new CheckingResult(developmentResult, resultInfo);
             } // Перехват исключений, вывод в лог
+            // ...
             String message = "Checker did not throw any expected exception while its work";
             DevelopmentLogging.logger.fine(message);
             DevelopmentResult developmentResult = new DevelopmentResult(0, message,
@@ -484,7 +549,9 @@ public class WrapperChecker {
 package com.ran.development.util;
 
 // Импорт классов
+// ...
 
+// Класс для динамической загрузки классов
 public class Utils {
 
     private Utils() { }
@@ -508,9 +575,11 @@ public class Utils {
                 }
             };
         } // Перехват исключений, вывод в лог
+        // ...
     }
     
     // Вспомогательные методы
+    // ...
     
 }
 \end{verbatim}
