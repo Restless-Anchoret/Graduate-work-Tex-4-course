@@ -44,34 +44,13 @@ public abstract class Generator {
         return values[random.nextInt(values.length)];
     }
     
-    protected long any(long[] values) {
-        return values[random.nextInt(values.length)];
-    }
-    
-    // Ещё any-методы
-    // ...
-    
     protected char any(String regularExpression) {
         int quantity = parser.getCharactersQuantity(regularExpression);
         return parser.getCharacter(regularExpression, random.nextInt(quantity));
     }
     
-    protected String anyLine(String regularExpression, int length) {
-        return anyLines(regularExpression, length, 1)[0];
-    }
-    
-    protected String[] anyLines(String regularExpression, int lengthOfLine, int linesQuantity) {
-        int quantity = parser.getCharactersQuantity(regularExpression);
-        String[] stringsArray = new String[linesQuantity];
-        char[] array = new char[lengthOfLine];
-        for (int i = 0; i < linesQuantity; i++) {
-            for (int j = 0; j < lengthOfLine; j++) {
-                array[j] = parser.getCharacter(regularExpression, random.nextInt(quantity));
-            }
-            stringsArray[i] = new String(array);
-        }
-        return stringsArray;
-    }
+    // Ещё any-методы
+    // ...
     
     // Метод непосредственной генерации входных данных
     abstract protected void generate(String[] args);
@@ -223,21 +202,8 @@ public abstract class Validator {
         }
     }
     
-    protected void matchesExpression(String line, String regularExpression)
-            throws ValidationException {
-        if (!parser.matchesExpression(line, regularExpression)) {
-            error("Line does not match the regular expression");
-        }
-    }
-    
-    protected void matchesExpression(String[] lines, String regularExpression)
-            throws ValidationException {
-        for (String line: lines) {
-            if (!parser.matchesExpression(line, regularExpression)) {
-                error("Line does not match the regular expression");
-            }
-        }
-    }
+    // Ещё matchesExpression-методы
+    // ...
     
     protected void inValues(int number, int[] values) throws ValidationException {
         for (int value: values) {
@@ -261,101 +227,6 @@ public abstract class Validator {
     
     // Метод непосредственной валидации входных данных
     public abstract void validate(String[] args) throws ValidationException;
-    
-}
-\end{verbatim}
-
-\section*{\texttt{MultiValidator.java}}
-\begin{verbatim}
-package com.ran.development.valid;
-
-// Импорт классов
-// ...
-
-public class MultiValidator {
-
-    private static final long MESSAGING_DELAY = 2000;
-    
-    // Набор слушателей процесса валидации
-    private DevelopmentListenerSupport listenerSupport = new DevelopmentListenerSupport();
-    // Поставщик валидатора
-    private Supplier<? extends Validator> validatorSupplier = () -> {
-        return Validator.getDefault();
-    };
-    // Пути файлов с валидируемыми входными данными
-    private Path[] paths = { };
-    // Аргументы запуска валидатора
-    private String[] arguments = { };
-    
-    // Геттеры, сеттеры, методы работы со слушателями
-    // ...
-    
-    // Запуск валидатора в отдельном потоке
-    public void performValidating() {
-        listenerSupport.fireProcessingStarted();
-        Validator validator = validatorSupplier.get();
-        if (validator == null) {
-            finishEarlier("Cannot instantiate Validator subclass",
-                    DevelopmentResult.FAIL, 1, paths.length);
-            return;
-        }
-        for (int index = 1; index <= paths.length; index++) {
-            listenerSupport.fireTaskProcessingStarted(index);
-            Path path = paths[index - 1];
-            long start = System.currentTimeMillis();
-            Thread thread = null;
-            try (InputStream inputStream = Files.newInputStream(path)) {
-                validator.setInputStream(inputStream);
-                FutureTask<DevelopmentResult> futureTask = new FutureTask<>(
-                        new ValidatingTask(validator, index, arguments));
-                thread = new Thread(futureTask);
-                start = System.currentTimeMillis();
-                thread.start();
-                while (thread.isAlive()) {
-                    thread.join(MESSAGING_DELAY);
-                    if (thread.isAlive()) {
-                        listenerSupport.fireTaskIsProcessing(index,
-                                System.currentTimeMillis() - start);
-                    }
-                }
-                listenerSupport.fireTaskIsDone(futureTask.get());
-            } // Перехват исключений, вывод в лог
-            // ...
-        }
-        listenerSupport.fireProcessingFinished();
-    }
-    
-    // Вспомогательные методы
-    // ...
-    
-    // Задача запуска валидатора
-    private static class ValidatingTask implements Callable<DevelopmentResult> {
-        private String[] arguments;
-        private Validator validator;
-        private int validatorNumber;
-        
-        // Конструктор
-        // ...
-        
-        @Override
-        public DevelopmentResult call() {
-            long start = System.currentTimeMillis();
-            try {
-                validator.performValidation(arguments);
-            } catch (ValidationException exception) {
-                StrictInput.State state = exception.getStrictInputState();
-                String message = exception.getMessage();
-                if (!state.isReaden()) {
-                    message += " (line = " + state.getLineNumber() + ", column = " +
-                            state.getPosition() + ")";
-                }
-                return new DevelopmentResult(validatorNumber, message, DevelopmentResult.FAIL,
-                        System.currentTimeMillis() - start);
-            } // Перехват исключений, вывод в лог
-            // ...
-            return new DevelopmentResult(validatorNumber, System.currentTimeMillis() - start);
-        }
-    }
     
 }
 \end{verbatim}
@@ -426,120 +297,6 @@ public abstract class Checker {
 
     // Метод непосредственной проверки ответа
     public abstract void check() throws CheckResultException;
-
-}
-\end{verbatim}
-
-\section*{\texttt{WrapperChecker.java}}
-\begin{verbatim}
-package com.ran.development.check;
-
-// Импорт классов
-// ...
-
-public class WrapperChecker {
-
-    private static final long DEFAULT_DELAY_TIME = 10_000;
-    private static final long MESSAGING_DELAY = 2000;
-
-    // Поставщик чекера
-    private Supplier<? extends Checker> checkerSupplier;
-    private Checker checker = null;
-    // Набор слушателей процесса проверки
-    private DevelopmentListenerSupport listenerSupport = new DevelopmentListenerSupport();
-    // Максимально допустимое время проверки на одном тесте
-    private long delayTime;
-
-    // Конструкторы, методы работы со слушателями
-    // ...
-
-    // Запуск чекера на одном тесте в отдельном потоке
-    public int check(Path inputPath, Path outputPath, Path answerPath) {
-        listenerSupport.fireTaskProcessingStarted(0);
-        if (checker == null) {
-            checker = checkerSupplier.get();
-        }
-        if (checker == null) {
-            String message = "Cannot load Checker subclass";
-            DevelopmentLogging.logger.fine(message);
-            listenerSupport.fireTaskIsDone(new DevelopmentResult(0, message, Checker.FAIL));
-            return Checker.FAIL;
-        }
-        long start = System.currentTimeMillis();
-        Thread thread = null;
-        try (InputStream input = Files.newInputStream(inputPath);
-                InputStream output = Files.newInputStream(outputPath);
-                InputStream answer = Files.newInputStream(answerPath)) {
-            checker.setInput(input);
-            checker.setOutput(output);
-            checker.setAnswer(answer);
-            FutureTask<CheckingResult> futureTask = new FutureTask<>(new CheckingTask(checker));
-            thread = new Thread(futureTask);
-            start = System.currentTimeMillis();
-            thread.start();
-            while (thread.isAlive()) {
-                thread.join(MESSAGING_DELAY);
-                if (thread.isAlive()) {
-                    long time = System.currentTimeMillis() - start;
-                    if (delayTime > 0 && time > delayTime) {
-                        thread.stop();
-                        String message = "Checker is working longer than expected";
-                        DevelopmentLogging.logger.fine(message);
-                        listenerSupport.fireTaskIsDone(new DevelopmentResult(0, message,
-                                DevelopmentResult.FAIL, time));
-                        return Checker.FAIL;
-                    }
-                    listenerSupport.fireTaskIsProcessing(0, time);
-                }
-            }
-            CheckingResult checkingResult = futureTask.get();
-            if (checkingResult.getCheckingInfo() == Checker.FAIL) {
-                DevelopmentLogging.logger.fine(checkingResult.getDevelopmentResult()
-                        .getMessage());
-            }
-            listenerSupport.fireTaskIsDone(checkingResult.getDevelopmentResult());
-            return checkingResult.getCheckingInfo();
-        } // Перехват исключений, вывод в лог
-        // ...
-        return Checker.FAIL;
-    }
-
-    // Результат проверки чекера на одном тесте
-    private static class CheckingResult {
-        private DevelopmentResult developmentResult;
-        private int checkingInfo;
-        // Конструкторы, геттеры
-        // ...
-    }
-
-    // Задача проверки на одном тесте
-    private static class CheckingTask implements Callable<CheckingResult> {
-        private Checker checker;
-        // Конструктор
-        // ...
-
-        @Override
-        public CheckingResult call() {
-            long start = System.currentTimeMillis();
-            try {
-                checker.performChecking();
-            } catch (CheckResultException exception) {
-                int resultInfo = exception.getResultInfo();
-                int developmentResultInfo = (resultInfo == Checker.FAIL
-                        ? DevelopmentResult.FAIL : DevelopmentResult.OK);
-                DevelopmentResult developmentResult = new DevelopmentResult(
-                        0, exception.getMessage(), developmentResultInfo,
-                        System.currentTimeMillis() - start);
-                return new CheckingResult(developmentResult, resultInfo);
-            } // Перехват исключений, вывод в лог
-            // ...
-            String message = "Checker did not throw any expected exception while its work";
-            DevelopmentLogging.logger.fine(message);
-            DevelopmentResult developmentResult = new DevelopmentResult(0, message,
-                    DevelopmentResult.FAIL, System.currentTimeMillis() - start);
-            return new CheckingResult(developmentResult, Checker.FAIL);
-        }
-    }
 
 }
 \end{verbatim}

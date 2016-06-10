@@ -120,54 +120,14 @@ public class EntityDescriptor {
     
     // Загрузка свойств из XML-файла
     public void load() {
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(path.toFile());
-            NodeList nodeList = document.getDocumentElement().getChildNodes();
-            for (int i = 0; i < nodeList.getLength(); i++) {
-                Node node = nodeList.item(i);
-                if (node instanceof Element) {
-                    String propertyName = node.getNodeName();
-                    String propertyValue = "";
-                    if (node.getFirstChild() != null) {
-                        propertyValue = node.getFirstChild().getNodeValue();
-                    }
-                    properties.put(propertyName, propertyValue);
-                }
-            }
-        } catch (Exception exception) {
-            FileSystemLogging.logger.log(Level.FINE,
-                    "Exception while loading submission descriptor", exception);
-        }
+        // Реализация с помощью DOM
+        // ...
     }
     
     // Сохранение свойств в XML-файле
     public void persist() {
-        try (OutputStream stream = Files.newOutputStream(path)) {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.newDocument();
-            Node submissionElement = document.createElement(rootNodeName);
-            for (Map.Entry<String, String> entry: properties.entrySet()) {
-                Node newNode = document.createElement(entry.getKey());
-                newNode.appendChild(document.createTextNode(entry.getValue()));
-                submissionElement.appendChild(newNode);
-            }
-            document.appendChild(submissionElement);
-            DOMImplementation implementation = document.getImplementation();
-            DOMImplementationLS implementationLS = (DOMImplementationLS)implementation
-                    .getFeature("LS", "3.0");
-            LSSerializer serializer = implementationLS.createLSSerializer();
-            serializer.getDomConfig().setParameter("format-pretty-print", true);
-            LSOutput output = implementationLS.createLSOutput();
-            output.setEncoding("UTF-8");
-            output.setByteStream(stream);
-            serializer.write(document, output);
-        } catch (Exception exception) {
-            FileSystemLogging.logger.log(Level.FINE,
-                    "Exception while loading submission descriptor", exception);
-        }
+        // Реализация с помощью DOM
+        // ...
     }
     
     // Вспомогательные методы
